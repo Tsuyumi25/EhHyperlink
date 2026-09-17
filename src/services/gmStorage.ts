@@ -1,0 +1,20 @@
+import { GM } from '$'
+
+export const hasGM = typeof GM?.getValue === 'function'
+
+export async function storageGet(key: string): Promise<string | null> {
+  if (hasGM) return (await GM.getValue<string>(key, '')) || null
+  return localStorage.getItem(key)
+}
+
+export async function storageSet(key: string, value: string): Promise<void> {
+  if (hasGM) {
+    await GM.setValue(key, value)
+    return
+  }
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // quota exceeded: settings are small, next save will retry
+  }
+}

@@ -2,10 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import GroupList from '@/components/GroupList.vue'
 import SettingsPopup from '@/components/SettingsPopup.vue'
-import { Settings } from '@lucide/vue'
+import { Activity, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY } from '@/i18n'
 import { readSourceGallery } from '@/core/eh/galleryPage'
-import { findEditions, type EditionGroup, type JumpResult } from '@/core/pipeline'
+import { findEditions, type EditionGroup, type JumpResult, type MetadataRequest, type SearchRequest } from '@/core/pipeline'
 import { displayTitle, subtitle } from '@/settings'
 
 const state = ref<'searching' | 'done' | 'noTitle' | 'failed'>('searching')
@@ -51,6 +51,11 @@ const badges = computed<Badge[]>(() => {
   return list
 })
 
+/** The request panel reads the two kinds apart; each keeps the order they were sent in. */
+const requests = computed(() => result.value?.requests ?? [])
+const searchRequests = computed(() => requests.value.filter((request): request is SearchRequest => request.kind === 'search'))
+const metadataRequests = computed(() => requests.value.filter((request): request is MetadataRequest => request.kind === 'metadata'))
+
 const hasResults = computed(() => badges.value.length > 0 || (result.value?.containers.length ?? 0) > 0)
 
 const status = computed(() => {
@@ -70,6 +75,36 @@ function toggle(id: string): void {
     <div class="ehl-tabs">
       <span v-if="status" class="ehl-status">{{ status }}</span>
       <template v-if="result">
+        <div class="ehl-unit" :class="{ 'ehl-unit--open': open === 'requests' }" @mouseenter="hovered = 'requests'" @mouseleave="hovered = null">
+          <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'requests' }" :title="t('requestsTitle')" @click="toggle('requests')">
+            <Activity :size="14" aria-hidden="true" />
+          </button>
+          <div class="ehl-list">
+            <section v-if="searchRequests.length > 0" class="ehl-section">
+              <h4 class="ehl-head">{{ t('searchRequests') }}<span class="ehl-count">{{ searchRequests.length }}</span></h4>
+              <ul>
+                <li v-for="request in searchRequests" :key="request.url">
+                  <a class="ehl-url" :href="request.url" target="_blank" rel="noopener">
+                    "{{ request.term }}"
+                    <span class="ehl-subtitle">{{ request.url }}</span>
+                  </a>
+                </li>
+              </ul>
+            </section>
+            <section v-if="metadataRequests.length > 0" class="ehl-section">
+              <h4 class="ehl-head">{{ t('metadataRequests') }}<span class="ehl-count">{{ metadataRequests.length }}</span></h4>
+              <ul>
+                <li v-for="(request, index) in metadataRequests" :key="index">
+                  <span class="ehl-url">
+                    {{ request.galleries }} {{ t('galleriesUnit') }}
+                    <span class="ehl-subtitle">{{ request.url }}</span>
+                  </span>
+                </li>
+              </ul>
+            </section>
+            <p v-if="requests.length === 0" class="ehl-head">{{ t('noRequests') }}</p>
+          </div>
+        </div>
         <div v-for="badge in badges" :key="badge.id" class="ehl-unit" :class="{ 'ehl-unit--open': open === badge.id }" @mouseenter="hovered = badge.id" @mouseleave="hovered = null">
           <button type="button" class="ehl-badge" :title="badge.title" @click="toggle(badge.id)">{{ badge.label }}</button>
           <GroupList :groups="badge.groups" :show-score="badge.showScore" />
@@ -90,7 +125,7 @@ function toggle(id: string): void {
         </div>
       </template>
       <div class="ehl-unit">
-        <button type="button" class="ehl-gear" :class="{ 'ehl-gear--active': pinned === 'settings' }" :title="t('settings')" @click="toggle('settings')">
+        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': pinned === 'settings' }" :title="t('settings')" @click="toggle('settings')">
           <Settings :size="14" aria-hidden="true" />
         </button>
         <SettingsPopup v-if="open === 'settings'" />
@@ -156,7 +191,7 @@ function toggle(id: string): void {
 /* Text and icon tabs share one height and centre their content, so the label
    baseline and the glyph line up. */
 .ehl-badge,
-.ehl-gear {
+.ehl-icon {
   display: flex;
   align-items: center;
   height: 22px;
@@ -170,7 +205,7 @@ function toggle(id: string): void {
   white-space: nowrap;
 }
 .ehl-tabs > :not(:first-child) > .ehl-badge,
-.ehl-tabs > :not(:first-child) > .ehl-gear {
+.ehl-tabs > :not(:first-child) > .ehl-icon {
   border-left: 1px solid var(--ehl-border, currentColor);
 }
 .ehl-badge {
@@ -178,12 +213,12 @@ function toggle(id: string): void {
   font-size: 11px;
   letter-spacing: 0.04em;
 }
-.ehl-gear {
+.ehl-icon {
   padding: 0 6px;
   opacity: 0.6;
 }
-.ehl-gear:hover,
-.ehl-gear--active {
+.ehl-icon:hover,
+.ehl-icon--active {
   opacity: 1;
 }
 /* The list stays a DOM child of its unit, so moving the pointer from the badge
@@ -253,6 +288,14 @@ function toggle(id: string): void {
   display: block;
   font-size: 11px;
   opacity: 0.7;
+}
+/* Request URLs run far past any gallery title, so this is the one row that wraps:
+   the popover is centred on the column and would otherwise overflow the page. */
+.ehl-url {
+  display: block;
+  max-width: 560px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .ehl-meta {
   margin-left: 6px;

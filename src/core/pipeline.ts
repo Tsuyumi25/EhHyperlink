@@ -2,14 +2,18 @@ import { matchContainers, matchExtractedChapters } from './search/container'
 import { dedupe, type EditionGroup, enrichHits, groupByLanguage, scoreEditions, toEdition } from './rank/edition'
 import { fetchGalleryMetadata } from './eh/ehApi'
 import { fetchSearch, type SearchHit } from './eh/ehSearch'
+import type { SentRequest } from './eh/requestLog'
 import type { SourceGallery } from './eh/galleryPage'
 import { planSearch, type SearchPlan } from './search/searchPlan'
 import { hasAiGeneratedTag } from './rank/titleSimilarity'
 
 export type { Edition, EditionFlag, EditionGroup } from './rank/edition'
+export type { MetadataRequest, SearchRequest, SentRequest } from './eh/requestLog'
 
 export interface JumpResult {
   plan: SearchPlan
+  /** every request this run sent, in send order; empty when the planner sent none */
+  requests: SentRequest[]
   /** the same book in other languages / releases, grouped by language */
   editions: EditionGroup[]
   /** other books of the same series, grouped by language */
@@ -27,7 +31,7 @@ export interface JumpResult {
  */
 export async function findEditions(source: SourceGallery, origin: string, priority: readonly string[]): Promise<JumpResult> {
   const plan = planSearch(source)
-  if (hasAiGeneratedTag(source.tags)) return { plan, editions: [], series: [], chapters: [], containers: [] }
+  if (hasAiGeneratedTag(source.tags)) return { plan, requests: [], editions: [], series: [], chapters: [], containers: [] }
 
   const search = (terms: readonly string[]) => Promise.all(terms.map((term) => fetchSearch(origin, term, plan.scope)))
   const [editionPages, chapterPages, containerPages] = await Promise.all([
@@ -36,9 +40,11 @@ export async function findEditions(source: SourceGallery, origin: string, priori
     search(plan.containerTerms),
   ])
 
-  const candidates = dedupe([...editionPages.flat(), ...chapterPages.flat()], source.gid)
-  const containerHits = dedupe(containerPages.flat(), source.gid)
-  const metadata = await fetchGalleryMetadata([...candidates, ...containerHits].map(({ gid, token }) => ({ gid, token })))
+  const candidates = dedupe([...editionPages, ...chapterPages].flatMap((page) => page.hits), source.gid)
+  const containerHits = dedupe(containerPages.flatMap((page) => page.hits), source.gid)
+  const { metadata, requests: metadataRequests } = await fetchGalleryMetadata([...candidates, ...containerHits].map(({ gid, token }) => ({ gid, token })))
+  const searchPages = [...editionPages, ...chapterPages, ...containerPages]
+  const requests: SentRequest[] = [...searchPages.map((page) => page.request), ...metadataRequests]
   const enriched = enrichHits(candidates, metadata)
 
   const chapters = plan.isContainerCandidate ? matchExtractedChapters(source, enriched) : []
@@ -47,6 +53,7 @@ export async function findEditions(source: SourceGallery, origin: string, priori
 
   return {
     plan,
+    requests,
     editions: groupByLanguage(editions, priority),
     series: groupByLanguage(series, priority),
     chapters: groupByLanguage(chapters.map((hit) => toEdition(hit, 1)), priority),

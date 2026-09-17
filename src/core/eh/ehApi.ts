@@ -1,4 +1,5 @@
 import type { GalleryRef } from './ehUrl'
+import type { MetadataRequest } from './requestLog'
 
 /**
  * E-Hentai gallery metadata API (https://ehwiki.org/wiki/API).
@@ -19,6 +20,12 @@ export interface GalleryMetadata {
   category: string
   /** `namespace:tag` with spaces, as the API returns them */
   tags: string[]
+}
+
+/** What the API answered, keyed by gid, and the POSTs it took to ask. */
+export interface MetadataResponse {
+  metadata: Map<number, GalleryMetadata>
+  requests: MetadataRequest[]
 }
 
 interface ApiEntry {
@@ -67,17 +74,24 @@ function pause(ms: number): Promise<void> {
   return promise
 }
 
-/** Metadata for every ref the API knows, keyed by gid. A failed chunk drops its galleries; the rest still return. */
-export async function fetchGalleryMetadata(refs: readonly GalleryRef[]): Promise<Map<number, GalleryMetadata>> {
-  const found = new Map<number, GalleryMetadata>()
+/**
+ * Metadata for every ref the API knows, plus one entry per POST that left the
+ * browser. A failed chunk drops its galleries and keeps its request: the host
+ * was asked either way.
+ */
+export async function fetchGalleryMetadata(refs: readonly GalleryRef[]): Promise<MetadataResponse> {
+  const metadata = new Map<number, GalleryMetadata>()
+  const requests: MetadataRequest[] = []
   for (let index = 0; index < refs.length; index += GALLERIES_PER_REQUEST) {
     const chunkNumber = index / GALLERIES_PER_REQUEST
     if (chunkNumber > 0 && chunkNumber % REQUESTS_BEFORE_PAUSE === 0) await pause(PAUSE_MS)
+    const chunk = refs.slice(index, index + GALLERIES_PER_REQUEST)
+    requests.push({ kind: 'metadata', url: API_URL, galleries: chunk.length })
     try {
-      for (const entry of await requestChunk(refs.slice(index, index + GALLERIES_PER_REQUEST))) found.set(entry.gid, entry)
+      for (const entry of await requestChunk(chunk)) metadata.set(entry.gid, entry)
     } catch (error) {
       console.warn('[EhHyperlink] metadata chunk skipped', error)
     }
   }
-  return found
+  return { metadata, requests }
 }

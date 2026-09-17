@@ -1,5 +1,6 @@
 import { readCategory } from './category'
 import { galleryRef, pageCount } from './ehUrl'
+import type { SearchRequest } from './requestLog'
 
 export interface SearchHit {
   gid: number
@@ -12,6 +13,12 @@ export interface SearchHit {
   tags: string[]
   pages: number | null
   torrentHref: string | null
+}
+
+/** One search page: the request that fetched it, and the rows it held. */
+export interface SearchResponse {
+  request: SearchRequest
+  hits: SearchHit[]
 }
 
 export function searchUrl(origin: string, term: string, scope = ''): string {
@@ -52,8 +59,9 @@ export function parseSearchResults(html: string): SearchHit[] {
   return hits
 }
 
-export async function fetchSearch(origin: string, term: string, scope = ''): Promise<SearchHit[]> {
-  const response = await fetch(searchUrl(origin, term, scope), { credentials: 'same-origin' })
+export async function fetchSearch(origin: string, term: string, scope = ''): Promise<SearchResponse> {
+  const url = searchUrl(origin, term, scope)
+  const response = await fetch(url, { credentials: 'same-origin' })
   if (!response.ok) throw new Error(`search failed: HTTP ${response.status}`)
-  return parseSearchResults(await response.text())
+  return { request: { kind: 'search', url, term }, hits: parseSearchResults(await response.text()) }
 }

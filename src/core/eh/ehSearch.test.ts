@@ -25,8 +25,15 @@ describe('search result parsing', () => {
     expect(parseSearchResults('<html><body><p>No hits found</p></body></html>')).toEqual([])
   })
 
-  it('quotes the whole term as one phrase and appends the creator scope', () => {
-    expect(searchUrl('https://e-hentai.org', 'Work Beta')).toBe('https://e-hentai.org/?f_search=%22Work%20Beta%22')
-    expect(searchUrl('https://e-hentai.org', 'Work Beta', 'a:"artist alpha$"')).toBe('https://e-hentai.org/?f_search=%22Work%20Beta%22%20a%3A%22artist%20alpha%24%22')
+  const queryOf = (url: string) => new URL(url).searchParams.get('f_search')
+
+  it('qualifies a phrase with title: and appends the creator scope', () => {
+    expect(searchUrl('https://e-hentai.org', ['Work Beta'])).toBe('https://e-hentai.org/?f_search=title%3A%22Work%20Beta%22')
+    expect(queryOf(searchUrl('https://e-hentai.org', ['Work Beta'], 'a:"artist alpha$"'))).toBe('title:"Work Beta" a:"artist alpha$"')
+  })
+
+  it('carries several phrases as one OR group', () => {
+    expect(queryOf(searchUrl('https://e-hentai.org', ['Work Beta', '作品乙'], 'a:"artist alpha$"')))
+      .toBe('~title:"Work Beta" ~title:"作品乙" a:"artist alpha$"')
   })
 })

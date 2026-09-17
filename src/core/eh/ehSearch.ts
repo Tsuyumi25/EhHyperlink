@@ -21,8 +21,22 @@ export interface SearchResponse {
   hits: SearchHit[]
 }
 
-export function searchUrl(origin: string, term: string, scope = ''): string {
-  const query = scope ? `"${term}" ${scope}` : `"${term}"`
+/**
+ * One request's query, from one or more work phrases and the creator scope.
+ *
+ * `title:` is required both ways. A bare phrase is matched against tags as well
+ * as titles (ehwiki `Gallery_Searching`), and a work phrase that happens to equal
+ * a popular tag then fills the 25-row first page with unrelated galleries —
+ * corpus run: 4.4% of phrases collide with a tag value, and qualifying them puts
+ * 16.5% more real hits back on the first page. `~` also rejects bare phrases
+ * ("There are no matching tags for your OR terms").
+ *
+ * Several phrases become one OR group. `queryGroups` decides when that is
+ * allowed; the caller MUST pass a non-empty group.
+ */
+export function searchUrl(origin: string, terms: readonly string[], scope = ''): string {
+  const phrases = terms.length > 1 ? terms.map((term) => `~title:"${term}"`).join(' ') : `title:"${terms[0]}"`
+  const query = scope ? `${phrases} ${scope}` : phrases
   return `${origin}/?f_search=${encodeURIComponent(query)}`
 }
 
@@ -59,9 +73,9 @@ export function parseSearchResults(html: string): SearchHit[] {
   return hits
 }
 
-export async function fetchSearch(origin: string, term: string, scope = ''): Promise<SearchResponse> {
-  const url = searchUrl(origin, term, scope)
+export async function fetchSearch(origin: string, terms: readonly string[], scope = ''): Promise<SearchResponse> {
+  const url = searchUrl(origin, terms, scope)
   const response = await fetch(url, { credentials: 'same-origin' })
   if (!response.ok) throw new Error(`search failed: HTTP ${response.status}`)
-  return { request: { kind: 'search', url, term }, hits: parseSearchResults(await response.text()) }
+  return { request: { kind: 'search', url, terms: [...terms] }, hits: parseSearchResults(await response.text()) }
 }

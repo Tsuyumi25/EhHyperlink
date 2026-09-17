@@ -26,7 +26,8 @@ export interface ContainerPlan {
   containerNames: string[]
   /** true when this gallery can itself be a container: Manga with no context block of its own */
   isContainerCandidate: boolean
-  /** for a container candidate, its full work text per field (volume number kept) so chapters naming this exact issue are found */
+  /** for a container candidate, its full work text per field (volume number kept) so chapters naming this exact issue are found.
+   * `pipeline.ts` sends these only when the edition first page may have truncated. */
   chapterTerms: string[]
 }
 

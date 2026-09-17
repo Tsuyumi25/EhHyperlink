@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import GroupList from '@/components/GroupList.vue'
 import SettingsPopup from '@/components/SettingsPopup.vue'
-import { Activity, Settings } from '@lucide/vue'
+import { Activity, CircleSlash2, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY } from '@/i18n'
 import { readSourceGallery } from '@/core/eh/galleryPage'
 import { findEditions, type EditionGroup, type JumpResult, type MetadataRequest, type SearchRequest } from '@/core/pipeline'
@@ -73,38 +73,39 @@ function toggle(id: string): void {
 <template>
   <div class="ehl-box" translate="no">
     <div class="ehl-tabs">
+      <div v-if="result" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'requests' }" @mouseenter="hovered = 'requests'" @mouseleave="hovered = null">
+        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'requests' }" :title="requests.length === 0 ? t('noRequests') : t('requestsTitle')" @click="toggle('requests')">
+          <CircleSlash2 v-if="requests.length === 0" :size="14" aria-hidden="true" />
+          <Activity v-else :size="14" aria-hidden="true" />
+        </button>
+        <div class="ehl-list">
+          <section v-if="searchRequests.length > 0" class="ehl-section">
+            <h4 class="ehl-head">{{ t('searchRequests') }}<span class="ehl-count">{{ searchRequests.length }}</span></h4>
+            <ul>
+              <li v-for="request in searchRequests" :key="request.url">
+                <a class="ehl-url" :href="request.url" target="_blank" rel="noopener">
+                  "{{ request.term }}"
+                  <span class="ehl-subtitle">{{ request.url }}</span>
+                </a>
+              </li>
+            </ul>
+          </section>
+          <section v-if="metadataRequests.length > 0" class="ehl-section">
+            <h4 class="ehl-head">{{ t('metadataRequests') }}<span class="ehl-count">{{ metadataRequests.length }}</span></h4>
+            <ul>
+              <li v-for="(request, index) in metadataRequests" :key="index">
+                <span class="ehl-url">
+                  {{ request.galleries }} {{ t('galleriesUnit') }}
+                  <span class="ehl-subtitle">{{ request.url }}</span>
+                </span>
+              </li>
+            </ul>
+          </section>
+          <p v-if="requests.length === 0" class="ehl-head">{{ t('noRequests') }}</p>
+        </div>
+      </div>
       <span v-if="status" class="ehl-status">{{ status }}</span>
       <template v-if="result">
-        <div class="ehl-unit" :class="{ 'ehl-unit--open': open === 'requests' }" @mouseenter="hovered = 'requests'" @mouseleave="hovered = null">
-          <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'requests' }" :title="t('requestsTitle')" @click="toggle('requests')">
-            <Activity :size="14" aria-hidden="true" />
-          </button>
-          <div class="ehl-list">
-            <section v-if="searchRequests.length > 0" class="ehl-section">
-              <h4 class="ehl-head">{{ t('searchRequests') }}<span class="ehl-count">{{ searchRequests.length }}</span></h4>
-              <ul>
-                <li v-for="request in searchRequests" :key="request.url">
-                  <a class="ehl-url" :href="request.url" target="_blank" rel="noopener">
-                    "{{ request.term }}"
-                    <span class="ehl-subtitle">{{ request.url }}</span>
-                  </a>
-                </li>
-              </ul>
-            </section>
-            <section v-if="metadataRequests.length > 0" class="ehl-section">
-              <h4 class="ehl-head">{{ t('metadataRequests') }}<span class="ehl-count">{{ metadataRequests.length }}</span></h4>
-              <ul>
-                <li v-for="(request, index) in metadataRequests" :key="index">
-                  <span class="ehl-url">
-                    {{ request.galleries }} {{ t('galleriesUnit') }}
-                    <span class="ehl-subtitle">{{ request.url }}</span>
-                  </span>
-                </li>
-              </ul>
-            </section>
-            <p v-if="requests.length === 0" class="ehl-head">{{ t('noRequests') }}</p>
-          </div>
-        </div>
         <div v-for="badge in badges" :key="badge.id" class="ehl-unit" :class="{ 'ehl-unit--open': open === badge.id }" @mouseenter="hovered = badge.id" @mouseleave="hovered = null">
           <button type="button" class="ehl-badge" :title="badge.title" @click="toggle(badge.id)">{{ badge.label }}</button>
           <GroupList :groups="badge.groups" :show-score="badge.showScore" />
@@ -205,7 +206,8 @@ function toggle(id: string): void {
   white-space: nowrap;
 }
 .ehl-tabs > :not(:first-child) > .ehl-badge,
-.ehl-tabs > :not(:first-child) > .ehl-icon {
+.ehl-tabs > :not(:first-child) > .ehl-icon,
+.ehl-tabs > :not(:first-child).ehl-status {
   border-left: 1px solid var(--ehl-border, currentColor);
 }
 .ehl-badge {

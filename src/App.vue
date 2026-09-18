@@ -74,7 +74,7 @@ function toggle(id: string): void {
   <div class="ehl-box" translate="no">
     <div class="ehl-tabs">
       <div v-if="result" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'requests' }" @mouseenter="hovered = 'requests'" @mouseleave="hovered = null">
-        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'requests' }" :title="requests.length === 0 ? t('noRequests') : t('requestsTitle')" @click="toggle('requests')">
+        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'requests', 'ehl-tab--pinned': pinned === 'requests' }" :title="requests.length === 0 ? t('noRequests') : t('requestsTitle')" @click="toggle('requests')">
           <CircleSlash2 v-if="requests.length === 0" :size="14" aria-hidden="true" />
           <Activity v-else :size="14" aria-hidden="true" />
         </button>
@@ -107,11 +107,11 @@ function toggle(id: string): void {
       <span v-if="status" class="ehl-status">{{ status }}</span>
       <template v-if="result">
         <div v-for="badge in badges" :key="badge.id" class="ehl-unit" :class="{ 'ehl-unit--open': open === badge.id }" @mouseenter="hovered = badge.id" @mouseleave="hovered = null">
-          <button type="button" class="ehl-badge" :title="badge.title" @click="toggle(badge.id)">{{ badge.label }}</button>
+          <button type="button" class="ehl-badge" :class="{ 'ehl-tab--pinned': pinned === badge.id }" :title="badge.title" @click="toggle(badge.id)">{{ badge.label }}</button>
           <GroupList :groups="badge.groups" :show-score="badge.showScore" :active="open === badge.id" />
         </div>
         <div v-if="result.containers.length > 0" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'containers' }" @mouseenter="hovered = 'containers'" @mouseleave="hovered = null">
-          <button type="button" class="ehl-badge ehl-badge--container" :title="t('containerTitle')" @click="toggle('containers')">{{ t('container') }}</button>
+          <button type="button" class="ehl-badge ehl-badge--container" :class="{ 'ehl-tab--pinned': pinned === 'containers' }" :title="t('containerTitle')" @click="toggle('containers')">{{ t('container') }}</button>
           <div class="ehl-list">
             <ul>
               <li v-for="hit in result.containers" :key="hit.gid">
@@ -126,7 +126,7 @@ function toggle(id: string): void {
         </div>
       </template>
       <div class="ehl-unit">
-        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': pinned === 'settings' }" :title="t('settings')" @click="toggle('settings')">
+        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'settings', 'ehl-tab--pinned': pinned === 'settings' }" :title="t('settings')" @click="toggle('settings')">
           <Settings :size="14" aria-hidden="true" />
         </button>
         <SettingsPopup v-if="open === 'settings'" />
@@ -221,6 +221,14 @@ function toggle(id: string): void {
 }
 .ehl-icon:hover,
 .ehl-icon--active {
+  opacity: 1;
+}
+/* A clicked tab stays open after the pointer leaves, and a hovered one does not —
+   so the pinned one needs a mark a hover never puts there. An inset line along
+   the bottom edge, the way a selected tab meets its panel; the colour is the
+   host's own text colour, which reads on both the light and the dark site. */
+.ehl-tab--pinned {
+  box-shadow: inset 0 -2px 0 currentColor;
   opacity: 1;
 }
 /* The list stays a DOM child of its unit, so moving the pointer from the badge

@@ -39,8 +39,27 @@ const cjkCounter = charIn(CJK_NUMERAL_CHARACTERS).times.between(1, 5)
  */
 const romanCounter = anyOf('ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'xi', 'xii', 'xiii')
 
-/** Words that label a counter, so `Ch. 10` and `10` both read as `10`. */
-const CHAPTER_WORDS = ['chapter', 'ch', 'volume', 'vol'] as const
+/**
+ * Words that label a counter, so `Ch. 10` and `10` both read as `10`.
+ *
+ * Corpus, measured on tail labels the same way for every entry — a head carrying
+ * two or more different numbers under the same word, against a head that also
+ * exists with no label at all. The four the table already held set the bar:
+ * volume 73.9% sibling (4,201 tails), ch 46.4% (17,713), vol 45.9% (45,064),
+ * chapter 40.8% (8,065).
+ *
+ * Added at or above that bar: set 74.0% (2,238), sono 52.6% (1,309) — the
+ * romanization of 其の, which only the romanized field ever writes — ep 51.8%
+ * (1,969), episode 45.6% (2,440), pt 45.6% (1,511), and part 41.5% (34,520),
+ * which is the largest gap of all: four times the tails of `chapter`.
+ *
+ * Left out: `no` at 59.5% (3,119) is both the particle の (`… Shiori no 7`) and
+ * part of a work name (`Love Potion No.0`); `act` 30.9%, `cap` 33.9% and
+ * `season` 24.0% fall under the bar, and `stage` clears it at 39.4% with only
+ * 236 tails. `android` scores 4.7% and confirms the measure: it counts
+ * characters, not parts.
+ */
+const CHAPTER_WORDS = ['chapter', 'episode', 'volume', 'part', 'sono', 'vol', 'set', 'ch', 'ep', 'pt'] as const
 
 /** `Ch. 3`, `Ch.3`, `Chapter 3`, `Vol. 8` — as a whole token, so `Chorus 3` keeps its `Ch`. */
 const latinChapter = standalone(

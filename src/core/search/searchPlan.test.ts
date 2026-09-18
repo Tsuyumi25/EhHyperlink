@@ -23,6 +23,23 @@ describe('chapter markers', () => {
     expect(readWorkText('Chapter 3 Alpha Beta').phrase).toBe('Alpha Beta')
   })
 
+  it('drops the other labels the corpus counts with', () => {
+    expect(readWorkText('Work Beta part2')).toEqual({ phrase: 'Work Beta', counter: '2' })
+    expect(readWorkText('Work Beta - part 1').phrase).toBe('Work Beta')
+    expect(readWorkText('Work Beta PART2').phrase).toBe('Work Beta')
+    expect(readWorkText('Work Beta pt1').phrase).toBe('Work Beta')
+    expect(readWorkText('Work Beta ep.3').phrase).toBe('Work Beta')
+    expect(readWorkText('Work Beta Episode 20')).toEqual({ phrase: 'Work Beta', counter: '20' })
+    expect(readWorkText('Work Beta Image Set 2').phrase).toBe('Work Beta Image')
+    // sono is the romanization of 其の, which only the romanized field writes
+    expect(readWorkText('Work Beta sono 3').phrase).toBe('Work Beta')
+    // a letter before the label puts it inside a word
+    expect(readWorkText('Work Sunset 3').phrase).toBe('Work Sunset')
+    expect(readWorkText('Work Partner 2').phrase).toBe('Work Partner')
+    // and the label needs a number after it
+    expect(readWorkText('Work Beta Part Two').phrase).toBe('Work Beta Part Two')
+  })
+
   it('drops a bare trailing series number only, decimals included', () => {
     expect(readWorkText('作品丁を教えて! 5').phrase).toBe('作品丁を教えて')
     expect(readWorkText('Alpha x Beta x Gamma 3').phrase).toBe('Alpha x Beta x Gamma')

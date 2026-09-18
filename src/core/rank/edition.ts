@@ -139,7 +139,7 @@ export interface ScoredHits {
    * settling the relation. A sequel written as free prose lands here, and so
    * does an unrelated book of theirs that happens to reuse a word.
    */
-  maybeSeries: Edition[]
+  related: Edition[]
 }
 
 /**
@@ -153,7 +153,7 @@ export interface ScoredHits {
  * applies. A third route admits titles that share no phrase at all: the creator
  * is settled and one title names the other's work inside a block.
  *
- * `fixedRange` opens `maybeSeries`. The query was then a slice of this gallery's
+ * `fixedRange` opens `related`. The query was then a slice of this gallery's
  * own title sent against one creator's shelf, so every row agrees on the person
  * and on vocabulary the source uses — which is what the slices were cut to
  * find, and also what an unrelated book of theirs can satisfy by accident. The
@@ -165,7 +165,7 @@ export interface ScoredHits {
 export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[], fixedRange = false): ScoredHits {
   const editions: Edition[] = []
   const series: Edition[] = []
-  const maybeSeries: Edition[] = []
+  const related: Edition[] = []
   for (const hit of hits) {
     if (hasAiGeneratedTag(hit.tags)) continue
     const creators = creatorVerdict(source.tags, hit.tags)
@@ -178,10 +178,10 @@ export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[],
     } else if (!blocked && creatorsAgree(...titles, creators) && mentionsWork(...titles)) {
       series.push(toEdition(hit, SIMILARITY_THRESHOLD))
     } else if (fixedRange && creators === 'same' && !blocked) {
-      maybeSeries.push(toEdition(hit, score))
+      related.push(toEdition(hit, score))
     }
   }
-  return { editions, series, maybeSeries }
+  return { editions, series, related }
 }
 
 /**

@@ -58,30 +58,30 @@ describe('edition scoring and grouping', () => {
     expect(series.map((edition) => edition.hit.gid)).toEqual([1, 2])
   })
 
-  it('holds a same-creator book that shares no phrase apart as maybe-series', () => {
+  it('holds a same-creator book that shares no phrase apart as related', () => {
     // slices cut from this gallery's own title, sent against this creator's own
     // shelf: a sequel written as free prose shares no phrase and scores near
     // zero. It is what the slices went looking for, and an unrelated book of
     // theirs reusing one word satisfies the same test — so it is not `series`.
     const prose = hit(1, '[Pixiv] [Artistalpha] Work Delta of Epsilon [English]', ['artist:artistalpha'])
     const loose = scoreEditions(source, [prose])
-    expect([loose.series, loose.maybeSeries]).toEqual([[], []])
-    const { editions, series, maybeSeries } = scoreEditions(source, [prose], true)
+    expect([loose.series, loose.related]).toEqual([[], []])
+    const { editions, series, related } = scoreEditions(source, [prose], true)
     expect([editions, series]).toEqual([[], []])
-    expect(maybeSeries.map((edition) => edition.hit.gid)).toEqual([1])
+    expect(related.map((edition) => edition.hit.gid)).toEqual([1])
     // the real score rides along, so the proven rows sort above it
-    expect(maybeSeries[0].score).toBeLessThan(SIMILARITY_THRESHOLD)
+    expect(related[0].score).toBeLessThan(SIMILARITY_THRESHOLD)
   })
 
   it('still proves editions and series inside a fixed range', () => {
-    const { editions, series, maybeSeries } = scoreEditions(
+    const { editions, series, related } = scoreEditions(
       source,
       [hit(1, '[Artistalpha] Work Beta (Series Gamma) [Chinese]'), hit(2, '[Artistalpha] Work Beta 2 (Series Gamma) [Chinese]')],
       true,
     )
     expect(editions.map((edition) => edition.hit.gid)).toEqual([1])
     expect(series.map((edition) => edition.hit.gid)).toEqual([2])
-    expect(maybeSeries).toEqual([])
+    expect(related).toEqual([])
   })
 
   it('keeps releases of one book together and separate books apart', () => {

@@ -41,6 +41,24 @@ function isApiEntry(value: unknown): value is ApiEntry {
   return typeof value === 'object' && value !== null && 'gid' in value && typeof value.gid === 'number'
 }
 
+/**
+ * The API answers with HTML-escaped titles (`&amp;`, `&#039;`), while the search
+ * page and the gallery page arrive through DOM text nodes and are decoded
+ * already. Left escaped, the same gallery would read differently depending on
+ * which route found it, and the trigram score would compare `&amp;` against `&`.
+ *
+ * A textarea decodes every named and numeric entity the same way the browser
+ * does; its `innerHTML` is RCDATA, so nothing is parsed as markup.
+ */
+let decoder: HTMLTextAreaElement | null = null
+
+function decodeEntities(value: string): string {
+  if (!value.includes('&')) return value
+  decoder ??= document.createElement('textarea')
+  decoder.innerHTML = value
+  return decoder.value
+}
+
 /** Metadata entries out of one API response body; malformed or errored entries are skipped. */
 export function parseMetadataResponse(body: unknown): GalleryMetadata[] {
   if (typeof body !== 'object' || body === null || !('gmetadata' in body) || !Array.isArray(body.gmetadata)) return []
@@ -49,8 +67,8 @@ export function parseMetadataResponse(body: unknown): GalleryMetadata[] {
     if (!isApiEntry(raw) || raw.error !== undefined || typeof raw.title !== 'string') continue
     entries.push({
       gid: raw.gid,
-      title: raw.title,
-      titleJpn: raw.title_jpn ?? '',
+      title: decodeEntities(raw.title),
+      titleJpn: decodeEntities(raw.title_jpn ?? ''),
       category: raw.category ?? '',
       tags: raw.tags ?? [],
     })

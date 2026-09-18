@@ -28,4 +28,19 @@ describe('gallery metadata response', () => {
     expect(parseMetadataResponse({ error: 'Invalid request' })).toEqual([])
     expect(parseMetadataResponse(null)).toEqual([])
   })
+
+  it('decodes the HTML entities the API escapes, so both routes read one title', () => {
+    const entries = parseMetadataResponse({
+      gmetadata: [
+        {
+          gid: 1004,
+          token: '0a0a0a0a0a',
+          title: '[Circle Alpha] Work Beta [Chinese] [Alpha Scans&amp;Beta Scans] &#039;Revised&#039;',
+          title_jpn: '[圓環甲] &quot;作品乙&quot; [中国翻訳]',
+        },
+      ],
+    })
+    expect(entries[0].title).toBe("[Circle Alpha] Work Beta [Chinese] [Alpha Scans&Beta Scans] 'Revised'")
+    expect(entries[0].titleJpn).toBe('[圓環甲] "作品乙" [中国翻訳]')
+  })
 })

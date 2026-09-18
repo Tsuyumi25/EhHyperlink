@@ -7,8 +7,8 @@ import { creatorVerdict, galleryTitleSimilarity } from './titleSimilarity'
 
 // Every title below is invented.
 
-function hit(gid: number, title: string, tags: string[] = []): SearchHit {
-  return { gid, token: '0000000000', href: `https://e-hentai.org/g/${gid}/0000000000/`, title, titleJpn: '', category: 'Doujinshi', tags, pages: null, torrentHref: null }
+function hit(gid: number, title: string, tags: string[] = [], posted: number | null = null): SearchHit {
+  return { gid, token: '0000000000', href: `https://e-hentai.org/g/${gid}/0000000000/`, title, titleJpn: '', category: 'Doujinshi', tags, pages: null, posted, torrentHref: null }
 }
 
 const source: SourceGallery = {
@@ -67,7 +67,9 @@ describe('edition scoring and grouping', () => {
       hit(4, '[Circle Omega] Work Beta 1 [Chinese] [Alpha Scans]', ['language:chinese']),
     ].map((galleryHit) => toEdition(galleryHit, 0.9))
     const books = groupReleases(releases)
-    expect(books.map((book) => book.releases.map((release) => release.hit.gid))).toEqual([[1, 2], [3], [4]])
+    // grouping only, not order: the rows carry no date, so their part numbers decide
+    const grouped = books.map((book) => book.releases.map((release) => release.hit.gid)).sort((a, b) => a[0] - b[0])
+    expect(grouped).toEqual([[1, 2], [3], [4]])
   })
 
   it('groups releases inside each language bucket', () => {
@@ -94,7 +96,8 @@ describe('edition scoring and grouping', () => {
         hit(5, '[Circle Alpha] Work Beta | 作品乙 2 [Chinese]', ['language:chinese']),
       ].map((galleryHit) => toEdition(galleryHit, 0.9)),
     )
-    expect(books.map((book) => book.releases.map((release) => release.hit.gid))).toEqual([[1, 2, 3], [4], [5]])
+    const grouped = books.map((book) => book.releases.map((release) => release.hit.gid)).sort((a, b) => a[0] - b[0])
+    expect(grouped).toEqual([[1, 2, 3], [4], [5]])
   })
 
   it('separates books the search phrase writes alike: wrapped subtitle, and a number the counter misses', () => {
@@ -109,7 +112,46 @@ describe('edition scoring and grouping', () => {
         hit(5, '[Circle Alpha] Work Gamma Ch. 1 [Chinese]', ['language:chinese']),
       ].map((galleryHit) => toEdition(galleryHit, 0.9)),
     )
-    expect(books.map((book) => book.releases.map((release) => release.hit.gid))).toEqual([[1, 2], [3], [4], [5]])
+    const grouped = books.map((book) => book.releases.map((release) => release.hit.gid)).sort((a, b) => a[0] - b[0])
+    expect(grouped).toEqual([[1, 2], [3], [4], [5]])
+  })
+
+  it('orders by part number when both rows have one, by upload date otherwise', () => {
+    const day = 86400
+    const books = groupReleases(
+      [
+        // out of order on purpose: 10 must not sort between 1 and 2
+        hit(1, '[Circle Alpha] Work Beta 10 [Chinese]', ['language:chinese'], 5 * day),
+        hit(2, '[Circle Alpha] Work Beta 2 [Chinese]', ['language:chinese'], 9 * day),
+        hit(3, '[Circle Alpha] Work Beta 1 [Chinese]', ['language:chinese'], 7 * day),
+      ].map((galleryHit) => toEdition(galleryHit, 0.9)),
+    )
+    expect(books.map((book) => book.releases[0].hit.gid)).toEqual([3, 2, 1])
+  })
+
+  it('orders word markers and releases of one book by upload date', () => {
+    const day = 86400
+    const books = groupReleases(
+      [
+        // 前編 / 後編 carry no number, so the dates decide
+        hit(1, '[Circle Alpha] Work Beta 後編 [Chinese]', ['language:chinese'], 4 * day),
+        hit(2, '[Circle Alpha] Work Beta 前編 [Chinese]', ['language:chinese'], 2 * day),
+        // two releases of the same book: the earlier upload leads, and the book
+        // travels on it
+        hit(3, '[Circle Alpha] Work Beta 前編 [Chinese] [Beta Scans]', ['language:chinese'], 1 * day),
+      ].map((galleryHit) => toEdition(galleryHit, 0.9)),
+    )
+    expect(books.map((book) => book.releases.map((release) => release.hit.gid))).toEqual([[3, 2], [1]])
+  })
+
+  it('sorts a row with no date last rather than first', () => {
+    const books = groupReleases(
+      [
+        hit(1, '[Circle Alpha] Work Beta 前編 [Chinese]', ['language:chinese'], null),
+        hit(2, '[Circle Alpha] Work Beta 後編 [Chinese]', ['language:chinese'], 86400),
+      ].map((galleryHit) => toEdition(galleryHit, 0.9)),
+    )
+    expect(books.map((book) => book.releases[0].hit.gid)).toEqual([2, 1])
   })
 })
 
@@ -152,8 +194,9 @@ describe('creator tags as a second identity source', () => {
 
   it('fills the Japanese title and tags from metadata and reads quality flags', () => {
     const bare = hit(3001, '[Artistalpha] Work Beta [English]')
-    const [enriched] = enrichHits([bare], new Map([[3001, { gid: 3001, title: bare.title, titleJpn: '[作者甲] 作品乙 [英訳]', category: 'Doujinshi', tags: ['language:english', 'language:rewrite', 'other:rough translation', 'artist:artistalpha'] }]]))
+    const [enriched] = enrichHits([bare], new Map([[3001, { gid: 3001, title: bare.title, titleJpn: '[作者甲] 作品乙 [英訳]', category: 'Doujinshi', posted: 1700000000, tags: ['language:english', 'language:rewrite', 'other:rough translation', 'artist:artistalpha'] }]]))
     expect(enriched.titleJpn).toBe('[作者甲] 作品乙 [英訳]')
+    expect(enriched.posted).toBe(1700000000)
     expect(editionFlags(enriched.tags)).toEqual(['rewrite', 'rough translation'])
     expect(editionFlags(['language:english'])).toEqual([])
   })

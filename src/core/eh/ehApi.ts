@@ -18,6 +18,8 @@ export interface GalleryMetadata {
   title: string
   titleJpn: string
   category: string
+  /** unix seconds; the API sends it as a decimal string */
+  posted: number | null
   /** `namespace:tag` with spaces, as the API returns them */
   tags: string[]
 }
@@ -33,6 +35,7 @@ interface ApiEntry {
   title?: string
   title_jpn?: string
   category?: string
+  posted?: string | number
   tags?: string[]
   error?: string
 }
@@ -59,6 +62,12 @@ function decodeEntities(value: string): string {
   return decoder.value
 }
 
+/** `"1277193600"` as the API writes it, or null when it is missing or not a number. */
+function readPosted(value: unknown): number | null {
+  const seconds = typeof value === 'string' ? Number(value) : typeof value === 'number' ? value : Number.NaN
+  return Number.isFinite(seconds) ? seconds : null
+}
+
 /** Metadata entries out of one API response body; malformed or errored entries are skipped. */
 export function parseMetadataResponse(body: unknown): GalleryMetadata[] {
   if (typeof body !== 'object' || body === null || !('gmetadata' in body) || !Array.isArray(body.gmetadata)) return []
@@ -70,6 +79,7 @@ export function parseMetadataResponse(body: unknown): GalleryMetadata[] {
       title: decodeEntities(raw.title),
       titleJpn: decodeEntities(raw.title_jpn ?? ''),
       category: raw.category ?? '',
+      posted: readPosted(raw.posted),
       tags: raw.tags ?? [],
     })
   }

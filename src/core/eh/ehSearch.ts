@@ -12,6 +12,8 @@ export interface SearchHit {
   category: string
   tags: string[]
   pages: number | null
+  /** unix seconds; read from the row's date cell and replaced by the exact API value */
+  posted: number | null
   torrentHref: string | null
 }
 
@@ -43,6 +45,18 @@ export function searchUrl(origin: string, term: string, scope = ''): string {
   return `${origin}/?f_search=${encodeURIComponent(query)}`
 }
 
+/**
+ * `2023-11-19 02:18` out of the row's date cell. The host prints it in whatever
+ * timezone the account is set to, which is enough to order one result page; the
+ * metadata API replaces it with the exact unix value.
+ */
+function postedSeconds(cell: Element | null): number | null {
+  const text = cell?.textContent?.trim()
+  if (!text) return null
+  const parsed = Date.parse(`${text.replace(' ', 'T')}Z`)
+  return Number.isFinite(parsed) ? Math.round(parsed / 1000) : null
+}
+
 /** Parse one result page in any of the five EH list modes (Minimal, Minimal+, Compact, Extended, Thumbnail). */
 export function parseSearchResults(html: string): SearchHit[] {
   const root = new DOMParser().parseFromString(html, 'text/html')
@@ -70,6 +84,7 @@ export function parseSearchResults(html: string): SearchHit[] {
       category: readCategory(row.querySelector('.cn, .cs')),
       tags: [...row.querySelectorAll('.gt, .gtl')].map((element) => element.getAttribute('title') ?? '').filter(Boolean),
       pages,
+      posted: postedSeconds(row.querySelector(`#posted_${ref.gid}, #postedpop_${ref.gid}`)),
       torrentHref: torrent?.getAttribute('href') ?? null,
     })
   }

@@ -19,9 +19,21 @@ describe('gallery metadata response', () => {
       title: '[Artistalpha.] Work Beta [Spanish]',
       titleJpn: '[作者甲] 作品乙 [スペイン翻訳]',
       category: 'Doujinshi',
+      posted: null,
       tags: ['language:spanish', 'artist:artistalpha.'],
     })
     expect(entries[1]).toMatchObject({ titleJpn: '', category: '', tags: [] })
+  })
+
+  it('reads the posted date the API sends as a decimal string', () => {
+    const entries = parseMetadataResponse({
+      gmetadata: [
+        { gid: 2001, title: 'Work Beta', posted: '1277193600' },
+        { gid: 2002, title: 'Work Gamma', posted: 1277193601 },
+        { gid: 2003, title: 'Work Delta', posted: 'not a date' },
+      ],
+    })
+    expect(entries.map((entry) => entry.posted)).toEqual([1277193600, 1277193601, null])
   })
 
   it('returns nothing for a body without gmetadata', () => {

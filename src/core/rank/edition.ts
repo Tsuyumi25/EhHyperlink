@@ -2,6 +2,7 @@ import { analyzeTitle } from '../title/titleStructure'
 import { detectLanguage } from './detectLanguage'
 import type { GalleryMetadata } from '../eh/ehApi'
 import { normalizeMarkerText } from '../title/titleMarkers'
+import { parseCjkNumeral } from '../title/cjkNumeral'
 import { readWorkText } from '../title/chapter'
 import type { SearchHit } from '../eh/ehSearch'
 import type { SourceGallery } from '../eh/galleryPage'
@@ -61,8 +62,55 @@ export function enrichHits(hits: readonly SearchHit[], metadata: ReadonlyMap<num
   return hits.map((hit) => {
     const meta = metadata.get(hit.gid)
     if (!meta) return hit
-    return { ...hit, title: meta.title || hit.title, titleJpn: meta.titleJpn, tags: meta.tags.length > 0 ? meta.tags : hit.tags }
+    return {
+      ...hit,
+      title: meta.title || hit.title,
+      titleJpn: meta.titleJpn,
+      tags: meta.tags.length > 0 ? meta.tags : hit.tags,
+      posted: meta.posted ?? hit.posted,
+    }
   })
+}
+
+/**
+ * Numeric value of a counter, for ordering: `02` reads 2 and `1-5` reads 1, so a
+ * part number sorts by size rather than by text (`10` after `9`). A counter with
+ * no number in it — `後編`, a subject part — has no size to sort by and reads null,
+ * and the upload date orders those instead.
+ */
+function counterNumber(counter: string): number | null {
+  let digits = ''
+  for (const character of counter) {
+    if (character >= '0' && character <= '9') digits += character
+    else if (digits) break
+  }
+  if (digits) return Number(digits)
+  return parseCjkNumeral(counter)
+}
+
+function orderOf(edition: Edition): { number: number | null; posted: number } {
+  const parts = analyzeTitle(edition.hit.title || edition.hit.titleJpn)
+  const halves = parts.coreSegments.join(' ').split(TITLE_BAR)
+  let counter = readWorkText(halves[0]).counter
+  for (const half of halves.slice(1)) {
+    if (counter) break
+    counter = readWorkText(half).counter
+  }
+  return { number: counterNumber(counter), posted: edition.hit.posted ?? Number.MAX_SAFE_INTEGER }
+}
+
+/**
+ * Reading order: the part number decides when both rows carry one, and the
+ * upload date decides otherwise — which is also what orders the releases of one
+ * book, and the parts of a series whose markers are words rather than numbers
+ * (`前編` was posted before `後編`). A row the metadata API never answered for
+ * sorts last rather than first.
+ */
+function compareEditions(left: Edition, right: Edition): number {
+  const a = orderOf(left)
+  const b = orderOf(right)
+  if (a.number !== null && b.number !== null && a.number !== b.number) return a.number - b.number
+  return a.posted - b.posted
 }
 
 export function toEdition(hit: SearchHit, score: number): Edition {
@@ -151,6 +199,10 @@ function bookKeyOf(hit: SearchHit): string {
  * Releases of one book, side by side. Every title is shown as written — the
  * differences between two scanlations live in blocks we cannot rank, so the
  * grouping only says which rows belong together and the reader reads the rest.
+ *
+ * Both levels take the same order, and a book travels on its leading release:
+ * sorting inside first puts that release at index 0, so the books line up by
+ * the earliest part and earliest upload each of them holds.
  */
 export function groupReleases(editions: readonly Edition[]): Book[] {
   const byBook = new Map<string, Edition[]>()
@@ -160,10 +212,12 @@ export function groupReleases(editions: readonly Edition[]): Book[] {
     bucket.push(edition)
     byBook.set(key, bucket)
   }
-  return [...byBook.values()].map((releases) => ({ releases }))
+  return [...byBook.values()]
+    .map((releases) => ({ releases: [...releases].sort(compareEditions) }))
+    .sort((left, right) => compareEditions(left.releases[0], right.releases[0]))
 }
 
-/** Bucket editions by language, best score first inside a bucket, reader's languages first across buckets. */
+/** Bucket editions by language, reading order inside a bucket, reader's languages first across buckets. */
 export function groupByLanguage(editions: readonly Edition[], priority: readonly string[]): EditionGroup[] {
   const byLanguage = new Map<string, Edition[]>()
   for (const edition of editions) {
@@ -176,6 +230,6 @@ export function groupByLanguage(editions: readonly Edition[], priority: readonly
     return index === -1 ? priority.length : index
   }
   return [...byLanguage.entries()]
-    .map(([language, items]) => ({ language: languageOf(language), books: groupReleases(items.sort((a, b) => b.score - a.score)) }))
+    .map(([language, items]) => ({ language: languageOf(language), books: groupReleases(items) }))
     .sort((a, b) => rank(a.language.value) - rank(b.language.value) || b.books.length - a.books.length)
 }

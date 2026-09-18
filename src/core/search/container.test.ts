@@ -7,7 +7,7 @@ import { planSearch } from './searchPlan'
 // Every title below is invented.
 
 function hit(gid: number, title: string, titleJpn = ''): SearchHit {
-  return { gid, token: '0000000000', href: `https://e-hentai.org/g/${gid}/0000000000/`, title, titleJpn, category: 'Manga', tags: [], pages: null, torrentHref: null }
+  return { gid, token: '0000000000', href: `https://e-hentai.org/g/${gid}/0000000000/`, title, titleJpn, category: 'Manga', tags: [], pages: null, posted: null, torrentHref: null }
 }
 
 const manga: SourceGallery = { gid: 1000, title: '', titleJpn: '', category: 'Manga', tags: [] }

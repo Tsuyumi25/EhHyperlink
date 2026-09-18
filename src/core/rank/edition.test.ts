@@ -81,6 +81,21 @@ describe('edition scoring and grouping', () => {
     )
     expect(groups.map((group) => group.books.map((book) => book.releases.length))).toEqual([[2], [1]])
   })
+
+  it('ignores the translated half of a title, but finds the counter on either side', () => {
+    const books = groupReleases(
+      [
+        hit(1, '[Circle Alpha] Work Beta [Chinese] [Alpha Scans]', ['language:chinese']),
+        // a translation that differs between releases, and one with none at all
+        hit(2, '[Circle Alpha] Work Beta | 作品乙 [Chinese] [Beta Scans]', ['language:chinese']),
+        hit(3, '[Circle Alpha] Work Beta | 譯名甲 [Chinese] [Gamma Scans]', ['language:chinese']),
+        // the counter written only after the bar still separates two chapters
+        hit(4, '[Circle Alpha] Work Beta | 作品乙 1 [Chinese]', ['language:chinese']),
+        hit(5, '[Circle Alpha] Work Beta | 作品乙 2 [Chinese]', ['language:chinese']),
+      ].map((galleryHit) => toEdition(galleryHit, 0.9)),
+    )
+    expect(books.map((book) => book.releases.map((release) => release.hit.gid))).toEqual([[1, 2, 3], [4], [5]])
+  })
 })
 
 describe('language detection', () => {

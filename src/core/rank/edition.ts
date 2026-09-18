@@ -7,6 +7,7 @@ import type { SearchHit } from '../eh/ehSearch'
 import type { SourceGallery } from '../eh/galleryPage'
 import { type Language, languageOf } from './languages'
 import { relationOf } from '../search/relation'
+import { TITLE_BAR } from '../search/searchPlan'
 import { creatorsAgree, creatorVerdict, galleryTitleSimilarity, hasAiGeneratedTag, mentionsWork, relationshipIsBlocked, SIMILARITY_THRESHOLD } from './titleSimilarity'
 
 /** Quality flags a reader wants to see next to an edition, read from tags. */
@@ -95,11 +96,27 @@ export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[])
  * creator block, work phrase, series counter. Structural equality rather than a
  * similarity score — grouping asserts "these are one book", and a reader misled
  * by a wrong group cannot see that the titles differed.
+ *
+ * Only the half before the bar is keyed on. ehwiki puts the translated title
+ * after it, and that half differs between releases or is missing entirely, while
+ * the original is written the same way every time — keying on the whole text
+ * splits one book into one group per translation (corpus sample: 987 keys
+ * collapse, 828 books go from alone to standing beside a sibling).
+ *
+ * The counter is looked for on both sides: 6.8% of barred titles write it only
+ * after the bar (`Work Beta | 作品乙 Ch. 1`), and losing it would merge two
+ * chapters into one book.
  */
 function bookKeyOf(hit: SearchHit): string {
   const parts = analyzeTitle(hit.title || hit.titleJpn)
-  const work = readWorkText(parts.coreSegments.join(' '))
-  return [parts.identity, normalizeMarkerText(work.phrase), work.counter].join('\u0000')
+  const halves = parts.coreSegments.join(' ').split(TITLE_BAR)
+  const head = readWorkText(halves[0])
+  let counter = head.counter
+  for (const half of halves.slice(1)) {
+    if (counter) break
+    counter = readWorkText(half).counter
+  }
+  return [parts.identity, normalizeMarkerText(head.phrase), counter].join('\u0000')
 }
 
 /**

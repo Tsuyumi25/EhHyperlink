@@ -283,6 +283,11 @@ function toggle(id: string): void {
   align-items: baseline;
   padding: 2px 0;
 }
+/* The wrapper around a book's rows carries no shape of its own; only a framed
+   book overrides this. */
+.ehl-books {
+  display: block;
+}
 /* Releases of one book sit inside a frame. The colour cycles so two books next
    to each other never share one; mid-saturation hues read on both the light and
    the dark site. */

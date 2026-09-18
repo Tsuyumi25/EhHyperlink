@@ -1,4 +1,4 @@
-import { analyzeTitle } from '../title/titleStructure'
+import { analyzeTitle, TITLE_BAR } from '../title/titleStructure'
 import { detectLanguage } from './detectLanguage'
 import type { GalleryMetadata } from '../eh/ehApi'
 import { normalizeMarkerText } from '../title/titleMarkers'
@@ -8,8 +8,7 @@ import type { SearchHit } from '../eh/ehSearch'
 import type { SourceGallery } from '../eh/galleryPage'
 import { type Language, languageOf } from './languages'
 import { relationOf } from '../search/relation'
-import { TITLE_BAR } from '../title/titleStructure'
-import { creatorsAgree, creatorVerdict, galleryTitleSimilarity, hasAiGeneratedTag, mentionsWork, relationshipIsBlocked, SIMILARITY_THRESHOLD } from './titleSimilarity'
+import { creatorsAgree, creatorVerdict, galleryTitleSimilarity, hasAiGeneratedTag, mentionsWork, relationshipIsBlocked, sharesWorkPhrase, SIMILARITY_THRESHOLD } from './titleSimilarity'
 
 /** Quality flags a reader wants to see next to an edition, read from tags. */
 export type EditionFlag = 'rewrite' | 'rough translation'
@@ -119,8 +118,14 @@ export function toEdition(hit: SearchHit, score: number): Edition {
 
 /**
  * Score every hit against the source and split same-book editions from series
- * siblings. Two routes into the series bucket: the work titles are alike, or the
- * creator is settled and one title names the other's work.
+ * siblings.
+ *
+ * Two ways in. With the creator settled by tags, the host already filtered — the
+ * search carried both the work phrase and the creator — so a shared phrase
+ * admits the row and the score is left to describe it. Without that, the score
+ * has to establish the relation itself and the threshold applies. A third route
+ * reaches the series bucket for titles that share no phrase at all: the creator
+ * is settled and one title names the other's work inside a block.
  */
 export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[]): { editions: Edition[]; series: Edition[] } {
   const editions: Edition[] = []
@@ -130,7 +135,11 @@ export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[])
     const creators = creatorVerdict(source.tags, hit.tags)
     const titles = [source.title, source.titleJpn, hit.title, hit.titleJpn] as const
     const score = galleryTitleSimilarity(...titles, creators)
-    if (score >= SIMILARITY_THRESHOLD) {
+    const admitted =
+      creators === 'same'
+        ? !relationshipIsBlocked(...titles, creators) && sharesWorkPhrase(...titles)
+        : score >= SIMILARITY_THRESHOLD
+    if (admitted) {
       ;(relationOf(source, hit) === 'edition' ? editions : series).push(toEdition(hit, score))
     } else if (!relationshipIsBlocked(...titles, creators) && creatorsAgree(...titles, creators) && mentionsWork(...titles)) {
       series.push(toEdition(hit, SIMILARITY_THRESHOLD))

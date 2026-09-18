@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { galleryTitleSimilarity, SIMILARITY_THRESHOLD, titleSimilarity } from './titleSimilarity'
+import { galleryTitleSimilarity, sharesWorkPhrase, SIMILARITY_THRESHOLD, titleSimilarity } from './titleSimilarity'
 
 // Every title below is invented; each case keeps the structural shape of a corpus pattern.
 
@@ -75,5 +75,25 @@ describe('gallery title similarity', () => {
   it('treats a short CJK work name with and without a space before its counter as one series', () => {
     const score = galleryTitleSimilarity('[サークル甲] 作品乙 18 (系列甲)', '', '[サークル甲] 作品乙18 SS (系列甲)', '', 'same')
     expect(score).toBeGreaterThanOrEqual(SIMILARITY_THRESHOLD)
+  })
+})
+
+describe('shared work phrase', () => {
+  it('finds one title\'s work phrase inside the other, where the score cannot', () => {
+    const part2 = '[Circle Alpha] 作品乙 part2 〜副題甲と作品丙〜'
+    const part1 = '[Circle Alpha] 作品乙 part1 ～副題乙と作品丁～'
+    // each part carries its own subtitle, so the trigram score falls away
+    expect(galleryTitleSimilarity(part2, '', part1, '', 'same')).toBeLessThan(SIMILARITY_THRESHOLD)
+    expect(sharesWorkPhrase(part2, '', part1, '')).toBe(true)
+  })
+
+  it('reads either title field, and either direction', () => {
+    expect(sharesWorkPhrase('[Circle Alpha] Work Beta part2', '', '', '[圓環甲] Work Beta part1')).toBe(true)
+    expect(sharesWorkPhrase('[Circle Alpha] Work Beta Collection', '', '[Circle Alpha] Work Beta', '')).toBe(true)
+  })
+
+  it('says no when the works are different, or the phrase is too short to mean anything', () => {
+    expect(sharesWorkPhrase('[Circle Alpha] Work Beta', '', '[Circle Alpha] Work Gamma', '')).toBe(false)
+    expect(sharesWorkPhrase('[Circle Alpha] AB', '', '[Circle Alpha] AB Something Else', '')).toBe(false)
   })
 })

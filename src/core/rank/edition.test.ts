@@ -3,7 +3,7 @@ import { detectLanguage } from './detectLanguage'
 import type { SearchHit } from '../eh/ehSearch'
 import type { SourceGallery } from '../eh/galleryPage'
 import { dedupe, editionFlags, enrichHits, groupByLanguage, groupReleases, scoreEditions, toEdition } from './edition'
-import { creatorVerdict, galleryTitleSimilarity } from './titleSimilarity'
+import { creatorVerdict, galleryTitleSimilarity, SIMILARITY_THRESHOLD } from './titleSimilarity'
 
 // Every title below is invented.
 
@@ -152,6 +152,34 @@ describe('edition scoring and grouping', () => {
       ].map((galleryHit) => toEdition(galleryHit, 0.9)),
     )
     expect(books.map((book) => book.releases[0].hit.gid)).toEqual([2, 1])
+  })
+
+  it('admits a series part on the shared phrase once the tags settle the creator', () => {
+    const work: SourceGallery = {
+      gid: 1000,
+      title: '[Circle Alpha] 作品乙 part2 〜副題甲と作品丙〜',
+      titleJpn: '',
+      category: 'Doujinshi',
+      tags: ['group:circle_alpha'],
+    }
+    const sibling = hit(9001, '[Circle Alpha] 作品乙 part1 ～副題乙と作品丁～', ['group:circle_alpha'])
+    // the threshold alone drops it: the two subtitles share nothing
+    expect(galleryTitleSimilarity(work.title, '', sibling.title, '', 'same')).toBeLessThan(SIMILARITY_THRESHOLD)
+    const { editions, series } = scoreEditions(work, [sibling])
+    expect([...editions, ...series].map((edition) => edition.hit.gid)).toEqual([9001])
+  })
+
+  it('keeps the threshold when no tag settles the creator', () => {
+    const work: SourceGallery = {
+      gid: 1000,
+      title: '[Circle Alpha] 作品乙 part2 〜副題甲と作品丙〜',
+      titleJpn: '',
+      category: 'Doujinshi',
+      tags: [],
+    }
+    const sibling = hit(9002, '[Circle Alpha] 作品乙 part1 ～副題乙と作品丁～', [])
+    const { editions, series } = scoreEditions(work, [sibling])
+    expect([...editions, ...series]).toHaveLength(0)
   })
 })
 

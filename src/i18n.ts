@@ -40,7 +40,6 @@ const MESSAGES = {
     ja: 'このギャラリーのキャッシュを破棄して再取得',
   },
   pages: { en: 'p', zh: '頁', ja: 'ページ' },
-  torrent: { en: 'Torrents', zh: '種子', ja: 'トレント' },
   rewrite: { en: 'rewrite', zh: '重寫', ja: 'リライト' },
   roughTranslation: { en: 'rough translation', zh: '粗譯', ja: '粗訳' },
   extraneousAds: { en: 'extraneous ads', zh: '外部廣告', ja: '広告混入' },

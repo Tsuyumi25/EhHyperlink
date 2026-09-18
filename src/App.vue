@@ -162,7 +162,7 @@ function toggle(id: string): void {
       <template v-if="result">
         <div v-for="badge in badges" :key="badge.id" class="ehl-unit" :class="{ 'ehl-unit--open': open === badge.id }" @mouseenter="hovered = badge.id" @mouseleave="hovered = null">
           <button type="button" class="ehl-badge" :class="{ 'ehl-tab--pinned': pinned === badge.id }" :title="badge.title" @click="toggle(badge.id)">{{ badge.label }}</button>
-          <GroupList :groups="badge.groups" :show-score="badge.showScore" :active="open === badge.id" />
+          <GroupList :groups="badge.groups" :show-score="badge.showScore" />
         </div>
         <div v-if="result.containers.length > 0" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'containers' }" @mouseenter="hovered = 'containers'" @mouseleave="hovered = null">
           <button type="button" class="ehl-badge ehl-badge--container" :class="{ 'ehl-tab--pinned': pinned === 'containers' }" :title="t('containerTitle')" @click="toggle('containers')">{{ t('container') }}</button>
@@ -370,12 +370,68 @@ function toggle(id: string): void {
   padding: 0;
   list-style: none;
 }
-/* A row stacks: the title takes as many lines as it needs, everything else goes
-   under it. `max-width` is what makes wrapping possible at all — the popover is
-   `width: max-content`, so without a ceiling the longest title just widens it. */
 .ehl-list li {
   display: block;
   padding: 2px 0;
+}
+/* The link inside carries the padding instead, so its hover shape reaches the row's
+   own edges. */
+.ehl-list li.ehl-row {
+  padding: 0;
+}
+/* One hit area over the cover, the title and the facts. `min-height` levels the rows,
+   and it is set by how big a cover has to be to be recognisable rather than by how
+   tall the text is — past five lines of text the floor is the taller of the two, so
+   every row reaches it, nothing has to be measured, and no row hands its own cover a
+   different size. It is stated in `em` so the host page's font size and a reader's own
+   zoom of it move the covers the same way they move the titles. */
+.ehl-rowlink {
+  --ehl-cover-h: 10em;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  min-height: var(--ehl-cover-h);
+  padding: 2px 3px;
+  border-radius: 3px;
+}
+/* The row being a hit area has to be visible, or the cursor is the only clue. Mixed
+   from `currentColor`, so it reads on the light site, on the dark one, and over a
+   book frame's own tint. */
+.ehl-rowlink:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+/* The space a cover gets, and nothing drawn: it holds the column open for a gallery
+   the metadata API handed no cover for, and gives the cover inside it something to be
+   positioned against. The width comes off the same `em` as the row's height, at the
+   5:7 an EH cover runs, so a standard cover very nearly fills it. */
+.ehl-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(var(--ehl-cover-h) * 5 / 7);
+}
+/* The border belongs to the cover, so it has to be the cover's own size: `object-fit`
+   would leave the image its full 100% box and draw the border around the empty part
+   too, so the box is sized by `max-*` instead and the ratio comes from the file. Out
+   of flow, because a replaced element in flow brings its own intrinsic height and
+   would set the flex line's height rather than follow it. Top edge, centred, so the
+   slack a cover with a different ratio leaves all ends up at the bottom. */
+.ehl-thumb img {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  max-width: 100%;
+  max-height: 100%;
+  border: 1px solid var(--ehl-border, currentColor);
+  border-radius: 2px;
+}
+/* A row stacks: the title takes as many lines as it needs, everything else goes under
+   it. `min-width: 0` because a flex item defaults to `auto` and would refuse to let
+   the title wrap at its own `max-width`. */
+.ehl-rowtext {
+  display: block;
+  min-width: 0;
 }
 .ehl-title {
   display: block;
@@ -491,8 +547,5 @@ function toggle(id: string): void {
   border: 1px solid currentColor;
   border-radius: 3px;
   opacity: 0.85;
-}
-.ehl-torrent {
-  margin-left: 4px;
 }
 </style>

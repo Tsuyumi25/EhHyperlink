@@ -10,8 +10,8 @@
 export interface SearchRequest {
   kind: 'search'
   url: string
-  /** the work phrases this one request carried, before URL encoding; more than one means an OR group */
-  terms: string[]
+  /** the quoted work phrase sent as `title:"…"`, before URL encoding */
+  term: string
 }
 
 export interface MetadataRequest {

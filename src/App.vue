@@ -84,7 +84,7 @@ function toggle(id: string): void {
             <ul>
               <li v-for="request in searchRequests" :key="request.url">
                 <a class="ehl-url" :href="request.url" target="_blank" rel="noopener">
-                  {{ request.terms.map((term) => `"${term}"`).join(' ') }}
+                  "{{ request.term }}"
                   <span class="ehl-subtitle">{{ request.url }}</span>
                 </a>
               </li>

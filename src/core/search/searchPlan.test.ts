@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { stripChapterMarkers } from '../title/chapter'
 import type { SourceGallery } from '../eh/galleryPage'
-import { creatorScope, editionTermsOf, planSearch, queryGroups } from './searchPlan'
+import { creatorScope, editionTermsOf, planSearch } from './searchPlan'
 
 // Every title below is invented.
 
@@ -101,20 +101,5 @@ describe('creator scope', () => {
     const plan = planSearch({ ...source, tags: ['artist:artist_alpha'] })
     expect(plan.scope).toBe('a:"artist alpha$"')
     expect(planSearch({ ...source, tags: [] }).scope).toBe('')
-  })
-})
-
-describe('query grouping', () => {
-  it('rides phrases together only while the OR group is free', () => {
-    const phrases = ['Work Beta', '作品乙']
-    // one creator → scope is a plain AND term, so the OR group can hold the phrases
-    expect(queryGroups(phrases, 'a:"artist alpha$"')).toEqual([['Work Beta', '作品乙']])
-    // two creators → the scope already owns the OR group; EH allows only one
-    expect(queryGroups(phrases, '~a:"artist alpha$" ~a:"artist beta$"')).toEqual([['Work Beta'], ['作品乙']])
-  })
-
-  it('gives a lone phrase its own request either way', () => {
-    expect(queryGroups(['Work Beta'], 'a:"artist alpha$"')).toEqual([['Work Beta']])
-    expect(queryGroups([], '')).toEqual([])
   })
 })

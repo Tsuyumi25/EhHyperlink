@@ -20,6 +20,10 @@ export interface GalleryMetadata {
   category: string
   /** unix seconds; the API sends it as a decimal string */
   posted: number | null
+  /** cover URL on the host's image domain, empty when the API has none */
+  thumb: string
+  /** 0–5, or null when nobody has rated the gallery */
+  rating: number | null
   /** `namespace:tag` with spaces, as the API returns them */
   tags: string[]
 }
@@ -36,6 +40,8 @@ interface ApiEntry {
   title_jpn?: string
   category?: string
   posted?: string | number
+  thumb?: string
+  rating?: string | number
   tags?: string[]
   error?: string
 }
@@ -68,6 +74,16 @@ function readPosted(value: unknown): number | null {
   return Number.isFinite(seconds) ? seconds : null
 }
 
+/**
+ * `"4.71"` as the API writes it. Zero means nobody has rated the gallery — the
+ * API sends `"0.00"` rather than omitting the field — and an unrated gallery has
+ * no stars to show, so it reads null.
+ */
+function readRating(value: unknown): number | null {
+  const rating = typeof value === 'string' ? Number(value) : typeof value === 'number' ? value : Number.NaN
+  return Number.isFinite(rating) && rating > 0 ? rating : null
+}
+
 /** Metadata entries out of one API response body; malformed or errored entries are skipped. */
 export function parseMetadataResponse(body: unknown): GalleryMetadata[] {
   if (typeof body !== 'object' || body === null || !('gmetadata' in body) || !Array.isArray(body.gmetadata)) return []
@@ -80,6 +96,8 @@ export function parseMetadataResponse(body: unknown): GalleryMetadata[] {
       titleJpn: decodeEntities(raw.title_jpn ?? ''),
       category: raw.category ?? '',
       posted: readPosted(raw.posted),
+      thumb: typeof raw.thumb === 'string' ? raw.thumb : '',
+      rating: readRating(raw.rating),
       tags: raw.tags ?? [],
     })
   }

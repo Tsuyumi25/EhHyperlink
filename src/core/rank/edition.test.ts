@@ -8,7 +8,7 @@ import { creatorVerdict, galleryTitleSimilarity, SIMILARITY_THRESHOLD } from './
 // Every title below is invented.
 
 function hit(gid: number, title: string, tags: string[] = [], posted: number | null = null): SearchHit {
-  return { gid, token: '0000000000', href: `https://e-hentai.org/g/${gid}/0000000000/`, title, titleJpn: '', category: 'Doujinshi', tags, pages: null, posted, torrentHref: null }
+  return { gid, token: '0000000000', href: `https://e-hentai.org/g/${gid}/0000000000/`, title, titleJpn: '', category: 'Doujinshi', tags, pages: null, posted, thumb: '', rating: null, torrentHref: null }
 }
 
 const source: SourceGallery = {
@@ -220,12 +220,26 @@ describe('creator tags as a second identity source', () => {
     expect(scoreEditions(source, [aiTagged]).editions).toHaveLength(0)
   })
 
-  it('fills the Japanese title and tags from metadata and reads quality flags', () => {
+  it('fills the Japanese title, tags, cover and rating from metadata and reads quality flags', () => {
     const bare = hit(3001, '[Artistalpha] Work Beta [English]')
-    const [enriched] = enrichHits([bare], new Map([[3001, { gid: 3001, title: bare.title, titleJpn: '[作者甲] 作品乙 [英訳]', category: 'Doujinshi', posted: 1700000000, tags: ['language:english', 'language:rewrite', 'other:rough translation', 'artist:artistalpha'] }]]))
+    const [enriched] = enrichHits([bare], new Map([[3001, {
+      gid: 3001,
+      title: bare.title,
+      titleJpn: '[作者甲] 作品乙 [英訳]',
+      category: 'Doujinshi',
+      posted: 1700000000,
+      thumb: 'https://example.invalid/cover.jpg',
+      rating: 4.71,
+      tags: ['language:english', 'language:rewrite', 'other:rough translation', 'artist:artistalpha'],
+    }]]))
     expect(enriched.titleJpn).toBe('[作者甲] 作品乙 [英訳]')
     expect(enriched.posted).toBe(1700000000)
+    expect(enriched.thumb).toBe('https://example.invalid/cover.jpg')
+    expect(enriched.rating).toBe(4.71)
     expect(editionFlags(enriched.tags)).toEqual(['rewrite', 'rough translation'])
     expect(editionFlags(['language:english'])).toEqual([])
+    // the underscore form the tag ids use reads the same as the spaced one
+    expect(editionFlags(['other:extraneous_ads'])).toEqual(['extraneous ads'])
+    expect(editionFlags(['other:extraneous ads', 'language:rewrite'])).toEqual(['extraneous ads', 'rewrite'])
   })
 })

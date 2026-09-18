@@ -119,7 +119,7 @@ function toggle(id: string): void {
                   {{ displayTitle(hit) }}
                   <span v-if="subtitle(hit)" class="ehl-subtitle">{{ subtitle(hit) }}</span>
                 </a>
-                <span v-if="hit.pages !== null" class="ehl-meta">{{ hit.pages }}{{ t('pages') }}</span>
+                <span v-if="hit.pages !== null" class="ehl-facts"><span class="ehl-meta">{{ hit.pages }}{{ t('pages') }}</span></span>
               </li>
             </ul>
           </div>
@@ -276,12 +276,64 @@ function toggle(id: string): void {
   padding: 0;
   list-style: none;
 }
-/* Row items align on the main title's baseline; the subtitle is a second line
-   inside the same link, so the metadata stays beside the first line. */
+/* A row stacks: the title takes as many lines as it needs, everything else goes
+   under it. `max-width` is what makes wrapping possible at all — the popover is
+   `width: max-content`, so without a ceiling the longest title just widens it. */
 .ehl-list li {
-  display: flex;
-  align-items: baseline;
+  display: block;
   padding: 2px 0;
+}
+.ehl-title {
+  display: block;
+  max-width: 520px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ehl-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 2px;
+}
+/* The meta spans carry their own left margin for the days they sat on the title
+   line; inside the facts line the first one has to start at the title's edge. */
+.ehl-facts > :first-child {
+  margin-left: 0;
+}
+/* One cover, in one place: the row under the pointer fills it. Pinned to the
+   viewport because the popover's own right edge runs off screen on a narrow
+   window; `left` / `top` / `max-*` are measured in `GroupList`, which puts it
+   beside the list when there is room. `pointer-events: none` keeps it from
+   stealing the hover that feeds it. */
+.ehl-preview {
+  position: fixed;
+  display: block;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid var(--ehl-border, currentColor);
+  border-radius: 4px;
+  background: var(--ehl-bg, #fff);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  z-index: 11;
+}
+/* Five grey stars with the rated share of them laid over in colour: a fractional
+   rating (`4.71`) needs a partial star, which a count of glyphs cannot give. */
+.ehl-stars {
+  position: relative;
+  display: inline-block;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 1px;
+  color: color-mix(in srgb, currentColor 35%, transparent);
+  white-space: nowrap;
+}
+.ehl-stars-on {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  color: hsl(45 90% 55%);
 }
 /* The wrapper around a book's rows carries no shape of its own; only a framed
    book overrides this. */

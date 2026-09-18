@@ -28,6 +28,7 @@ const MESSAGES = {
   torrent: { en: 'Torrents', zh: '種子', ja: 'トレント' },
   rewrite: { en: 'rewrite', zh: '重寫', ja: 'リライト' },
   roughTranslation: { en: 'rough translation', zh: '粗譯', ja: '粗訳' },
+  extraneousAds: { en: 'extraneous ads', zh: '外部廣告', ja: '広告混入' },
   settings: { en: 'Settings', zh: '設定', ja: '設定' },
   settingTitleLanguage: { en: 'Titles', zh: '標題顯示', ja: 'タイトル表示' },
   titleRomanized: { en: 'Romanized', zh: '英文／羅馬字', ja: 'ローマ字' },

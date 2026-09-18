@@ -20,6 +20,8 @@ describe('gallery metadata response', () => {
       titleJpn: '[作者甲] 作品乙 [スペイン翻訳]',
       category: 'Doujinshi',
       posted: null,
+      thumb: '',
+      rating: null,
       tags: ['language:spanish', 'artist:artistalpha.'],
     })
     expect(entries[1]).toMatchObject({ titleJpn: '', category: '', tags: [] })
@@ -34,6 +36,18 @@ describe('gallery metadata response', () => {
       ],
     })
     expect(entries.map((entry) => entry.posted)).toEqual([1277193600, 1277193601, null])
+  })
+
+  it('reads the cover URL and drops a rating of zero as unrated', () => {
+    const entries = parseMetadataResponse({
+      gmetadata: [
+        { gid: 3001, title: 'Work Beta', thumb: 'https://example.invalid/cover.jpg', rating: '4.71' },
+        { gid: 3002, title: 'Work Gamma', rating: '0.00' },
+        { gid: 3003, title: 'Work Delta', thumb: 42, rating: 'unrated' },
+      ],
+    })
+    expect(entries.map((entry) => entry.thumb)).toEqual(['https://example.invalid/cover.jpg', '', ''])
+    expect(entries.map((entry) => entry.rating)).toEqual([4.71, null, null])
   })
 
   it('returns nothing for a body without gmetadata', () => {

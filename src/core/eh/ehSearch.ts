@@ -14,6 +14,14 @@ export interface SearchHit {
   pages: number | null
   /** unix seconds; read from the row's date cell and replaced by the exact API value */
   posted: number | null
+  /**
+   * Cover URL and 0–5 rating, from the metadata API only. A search row's
+   * thumbnail is a lazy-load placeholder until it scrolls into view, and its
+   * rating is a sprite offset in a `background-position`; the API hands over
+   * both as plain values.
+   */
+  thumb: string
+  rating: number | null
   torrentHref: string | null
 }
 
@@ -85,6 +93,8 @@ export function parseSearchResults(html: string): SearchHit[] {
       tags: [...row.querySelectorAll('.gt, .gtl')].map((element) => element.getAttribute('title') ?? '').filter(Boolean),
       pages,
       posted: postedSeconds(row.querySelector(`#posted_${ref.gid}, #postedpop_${ref.gid}`)),
+      thumb: '',
+      rating: null,
       torrentHref: torrent?.getAttribute('href') ?? null,
     })
   }

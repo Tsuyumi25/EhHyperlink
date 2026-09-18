@@ -11,7 +11,7 @@ import { relationOf } from '../search/relation'
 import { creatorsAgree, creatorVerdict, galleryTitleSimilarity, hasAiGeneratedTag, mentionsWork, relationshipIsBlocked, sharesWorkPhrase, SIMILARITY_THRESHOLD } from './titleSimilarity'
 
 /** Quality flags a reader wants to see next to an edition, read from tags. */
-export type EditionFlag = 'rewrite' | 'rough translation'
+export type EditionFlag = 'rewrite' | 'rough translation' | 'extraneous ads'
 
 export interface Edition {
   hit: SearchHit
@@ -30,9 +30,15 @@ export interface EditionGroup {
   books: Book[]
 }
 
+/**
+ * Each entry is something a reader would want to know before opening the
+ * gallery: the text was rewritten rather than translated, the translation is
+ * rough, or the pages carry advertising unrelated to the work.
+ */
 const FLAG_TAGS: Record<string, EditionFlag> = {
   'language:rewrite': 'rewrite',
   'other:rough translation': 'rough translation',
+  'other:extraneous ads': 'extraneous ads',
 }
 
 export function editionFlags(tags: readonly string[]): EditionFlag[] {
@@ -56,7 +62,11 @@ export function dedupe(hits: readonly SearchHit[], excludeGid: number): SearchHi
   return unique
 }
 
-/** Search rows carry one title field and, in some list modes, no tags; the metadata API fills both. */
+/**
+ * Search rows carry one title field and, in some list modes, no tags; the
+ * metadata API fills those, plus the cover and rating no list mode hands over
+ * in a usable form.
+ */
 export function enrichHits(hits: readonly SearchHit[], metadata: ReadonlyMap<number, GalleryMetadata>): SearchHit[] {
   return hits.map((hit) => {
     const meta = metadata.get(hit.gid)
@@ -67,6 +77,8 @@ export function enrichHits(hits: readonly SearchHit[], metadata: ReadonlyMap<num
       titleJpn: meta.titleJpn,
       tags: meta.tags.length > 0 ? meta.tags : hit.tags,
       posted: meta.posted ?? hit.posted,
+      thumb: meta.thumb || hit.thumb,
+      rating: meta.rating ?? hit.rating,
     }
   })
 }

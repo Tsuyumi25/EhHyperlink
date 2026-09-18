@@ -72,6 +72,17 @@ describe('chapter markers', () => {
     expect(readWorkText('作品丙 天下').phrase).toBe('作品丙 天下')
   })
 
+  it('reads a space-isolated part name ending in 編 / 篇 as the counter', () => {
+    expect(readWorkText('作品乙の冒険 アイウエ編')).toEqual({ phrase: '作品乙の冒険', counter: 'アイウエ編' })
+    expect(readWorkText('作品乙 甲編')).toEqual({ phrase: '作品乙', counter: '甲編' })
+    expect(readWorkText('作品乙2 保健甲編').phrase).toBe('作品乙2')
+    // the rightmost group decides, and the counter is what came off it
+    expect(readWorkText('作品乙 ～副題甲～ 丙編')).toEqual({ phrase: '作品乙～副題甲', counter: '丙編' })
+    // the shape is what identifies it, so it needs the space and a token that ends
+    expect(readWorkText('作品乙アイウエ編').phrase).toBe('作品乙アイウエ編')
+    expect(readWorkText('作品乙 とてもとてもとても長い題名の編').phrase).toBe('作品乙 とてもとてもとても長い題名の編')
+  })
+
   it('reads a marker at the end of any group, not only of the whole text', () => {
     // punctuation after the marker no longer hides it, and the emptied group takes its separator
     expect(readWorkText('作品乙 後編。').phrase).toBe('作品乙')

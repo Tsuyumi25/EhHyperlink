@@ -1,6 +1,6 @@
 import { anyOf, charIn, exactly, maybe, oneOrMore } from 'magic-regexp'
 import { CJK_NUMERAL_CHARACTERS, parseCjkNumeral } from './cjkNumeral'
-import { cjkLetter, compile, digit, end, letter, optionalSpace, punctuation, standalone, start, whitespace, whitespaceRun } from './pattern'
+import { cjkLetter, compile, digit, end, letter, notUnicode, optionalSpace, punctuation, standalone, start, whitespace, whitespaceRun } from './pattern'
 
 /**
  * Chapter and volume markers inside the unwrapped work text.
@@ -124,6 +124,28 @@ const MID_COUNTER = compile(
 const positionOnlyWord = anyOf('続', '改', '上', '中', '下')
 
 /**
+ * A part named after its subject, closing the group: `作品乙 甲編`.
+ *
+ * These stay out of `seriesWord` on purpose. That table holds words whose text
+ * alone says "position in a series", so they are read wherever they sit; a
+ * subject part says nothing on its own and is recognized by shape — a token that
+ * ends the group and ends in `編` / `篇`.
+ *
+ * Corpus: 10,741 fields end in a spaced 2–10 character `編` / `篇` token that the
+ * table does not hold (`編` 8,655, `篇` 2,086; `编` is out at 56 with a single
+ * multi-part series). 34.1% of them sit under a head carrying two or more
+ * different parts — one head carries 36 — so leaving the part in means a phrase
+ * that retrieves its own gallery and nothing else. Among galleries with a
+ * creator tag, cutting there finds a same-creator relative 62.8% of the time
+ * against 57.0% for the whole string.
+ *
+ * The counter keeps the part (`甲編`), which is what tells two parts of one
+ * series apart after the phrase has dropped it.
+ */
+const subjectPart = notUnicode('White_Space').times.between(1, 9)
+  .and(charIn('編篇'))
+
+/**
  * A bare counter or short word counts only as the last whitespace token of its
  * group: `作品乙 5`, `作品乙 弐`, or the whole group (`作品乙・上`). Japanese and
  * Chinese titles glue an Arabic number to the last character (`ほん5`, `本子5`),
@@ -132,7 +154,7 @@ const positionOnlyWord = anyOf('続', '改', '上', '中', '下')
  */
 const TRAILING_NUMBER = compile(
   anyOf(
-    anyOf(counter, cjkCounter, romanCounter, seriesWord, positionOnlyWord).after(anyOf(whitespace, start)),
+    anyOf(counter, cjkCounter, romanCounter, seriesWord, positionOnlyWord, subjectPart).after(anyOf(whitespace, start)),
     counter.after(cjkLetter),
   ).and(end),
   ['i'],
@@ -175,26 +197,32 @@ function unlessNotNumeral(replacement: string) {
  *
  * A group emptied by the strip takes its separator with it, so `作品乙 後編。`
  * reads as `作品乙` rather than keeping a dangling `。`.
+ *
+ * What came off is returned rather than recovered from the length difference:
+ * the kept groups are rejoined without their padding, so the result is not a
+ * prefix of the input and `text.slice(phrase.length)` would read from the wrong
+ * offset (`作品乙 ～副題甲～ 丙編` gave a counter of `甲～ 丙編`). The rightmost
+ * strip wins — that is the group closest to where a series marker belongs.
  */
-function stripGroupTails(text: string, alreadyStripped = false): string {
+function stripGroupTails(text: string, alreadyStripped = false): { text: string; removed: string } {
   const parts = text.split(GROUP_SEPARATOR)
   const kept: string[] = []
-  let removedAnything = false
+  let removed = ''
   for (let index = 0; index < parts.length; index += 2) {
     const group = parts[index].trim()
     const shorter = group.replace(TRAILING_NUMBER, unlessNotNumeral('')).trim()
-    if (shorter !== group) removedAnything = true
+    if (shorter !== group) removed = group.slice(shorter.length).trim()
     if (!shorter) continue
     if (kept.length > 0) kept.push(parts[index - 1])
     kept.push(shorter)
   }
   // No marker found means no reason to touch the text: a title that merely ends
   // in punctuation (`作品乙。`) keeps it, and so does one with padded separators.
-  if (!removedAnything && !alreadyStripped) return text
+  if (!removed && !alreadyStripped) return { text, removed: '' }
   // Everything stripped means the text was the counter, not a work plus one:
   // a digit-only title (`7`) keeps its own text and is filtered further up.
   const stripped = kept.join('')
-  return stripped || text
+  return stripped ? { text: stripped, removed } : { text, removed: '' }
 }
 
 /** EH rejects a phrase of one character, so a cut may not leave less than this. */
@@ -286,14 +314,14 @@ export interface WorkText {
 export function readWorkText(text: string): WorkText {
   const marker = firstCutPoint(text)
   if (marker === null) {
-    const phrase = stripGroupTails(text)
-    return { phrase: trimEdges(phrase), counter: phrase === text ? '' : counterIn(text.slice(phrase.length)) }
+    const { text: phrase, removed } = stripGroupTails(text)
+    return { phrase: trimEdges(phrase), counter: removed ? counterIn(removed) : '' }
   }
   const left = text.slice(0, marker.index).trim()
   const right = text.slice(marker.index + marker.length).trim()
   const work = HAS_LETTER.test(left) && left.length >= MIN_PHRASE_LENGTH ? left : right
   return {
-    phrase: trimEdges(stripGroupTails(work, true)),
+    phrase: trimEdges(stripGroupTails(work, true).text),
     counter: counterIn(text.slice(marker.index, marker.index + marker.length)),
   }
 }

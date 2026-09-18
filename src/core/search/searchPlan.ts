@@ -1,4 +1,4 @@
-import { stripChapterMarkers } from '../title/chapter'
+import { readWorkText } from '../title/chapter'
 import { type ContainerPlan, planContainerSearch } from './container'
 import type { SourceGallery } from '../eh/galleryPage'
 import { compile, letter } from '../title/pattern'
@@ -35,11 +35,11 @@ const LETTER_RE = compile(letter)
 /** ehwiki: a translated title follows the original after a spaced vertical bar. */
 export const TITLE_BAR = ' | '
 
-/** Search phrases for one title field: each side of a vertical bar, minus chapter markers, letters required. */
+/** Search phrases for one title field: each side of a vertical bar, cut at its chapter marker, letters required. */
 export function editionTermsOf(coreText: string): string[] {
   return coreText
     .split(TITLE_BAR)
-    .map((part) => stripChapterMarkers(part))
+    .map((part) => readWorkText(part).phrase)
     .filter((part) => LETTER_RE.test(part))
 }
 

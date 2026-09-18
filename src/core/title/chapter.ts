@@ -1,6 +1,6 @@
-import { anyOf, charIn, exactly, maybe } from 'magic-regexp'
+import { anyOf, charIn, exactly, maybe, oneOrMore } from 'magic-regexp'
 import { CJK_NUMERAL_CHARACTERS, parseCjkNumeral } from './cjkNumeral'
-import { cjkLetter, compile, digit, end, optionalSpace, standalone, start, whitespace, whitespaceRun } from './pattern'
+import { cjkLetter, compile, digit, end, letter, optionalSpace, punctuation, standalone, start, whitespace, whitespaceRun } from './pattern'
 
 /**
  * Chapter and volume markers inside the unwrapped work text.
@@ -39,8 +39,8 @@ const cjkCounter = charIn(CJK_NUMERAL_CHARACTERS).times.between(1, 5)
  */
 const romanCounter = anyOf('ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'xi', 'xii', 'xiii')
 
-/** Words that label a counter; `relation.ts` drops them when comparing counters, so `Ch. 10` and `10` agree. */
-export const CHAPTER_WORDS = ['chapter', 'ch', 'volume', 'vol'] as const
+/** Words that label a counter, so `Ch. 10` and `10` both read as `10`. */
+const CHAPTER_WORDS = ['chapter', 'ch', 'volume', 'vol'] as const
 
 /** `Ch. 3`, `Ch.3`, `Chapter 3`, `Vol. 8` — as a whole token, so `Chorus 3` keeps its `Ch`. */
 const latinChapter = standalone(
@@ -55,34 +55,70 @@ const cjkChapter = exactly('第')
   .and(anyOf(counter, cjkCounter))
   .and(charIn('話话巻卷'))
 
+/**
+ * Series words whose text alone settles that they mark a position in a series,
+ * so they are read wherever they sit. Each entry had a same-creator sibling with
+ * a different ending in at least 60% of corpus cases (前編 70%, 後編 77%,
+ * 中編 84%, 上巻 80%, 下巻 79%, 最終話 85%) or an existing base work in at least
+ * 25% (完結編 43%, 総集編 28%, 新装版 34%).
+ *
+ * Harvested from every `編` / `篇` word in the corpus with at least 30
+ * occurrences, then narrowed to the ones that name a position in a series rather
+ * than a subject — a part named after what it contains is not the same work as a
+ * part named after something else. Entries are listed longest-first so `続編`
+ * wins over `続`.
+ *
+ * The Chinese and variant forms carry their own corpus counts (番外篇 431,
+ * 后篇 146, 特别篇 143, 上篇 110, 下篇 103, 中篇 97, 總集篇 95, 总集篇 89,
+ * 完结篇 40); a translated edition writes them where the original writes kanji,
+ * and stripping both sides is what lets the remaining work text match.
+ */
+const seriesWord = anyOf(
+  '最終話', '番外編', '番外篇', '完結編', '完结篇', '総集編', '總集篇', '总集篇',
+  '特別編', '特別篇', '特别篇', '完全版', '新装版', '続編',
+  '前編', '後編', '中編', '前篇', '後篇', '后篇', '上篇', '中篇', '下篇',
+  '上巻', '中巻', '下巻', '序章', '本編', '全編',
+)
+
+/**
+ * Labelled markers, read wherever they sit — the label settles what the number
+ * means.
+ */
 const CHAPTER_MARKER = compile(
   optionalSpace.and(anyOf(latinChapter, cjkChapter)),
   ['g', 'i'],
 )
 
 /**
- * Sequel and edition words that close a title as their own token. Each entry had
- * a same-creator sibling with a different ending in at least 60% of corpus cases
- * (前編 70%, 後編 77%, 中編 84%, 上巻 80%, 下巻 79%, 最終話 85%, 上 63%, 下 81%) or
- * an existing base work in at least 25% (改 39%, 完結編 43%, 総集編 28%, 新装版 34%).
+ * Where a search phrase ends. Series words join the labelled forms here but not
+ * in `CHAPTER_MARKER`: removing one mid-word and joining the halves produces
+ * text no title contained (`作品乙ー後編ー` would read `作品乙ー ー`, and the
+ * counter difference `relation.ts` takes would swallow the whole title), while
+ * cutting at it yields `作品乙ー`, a prefix of the original.
  */
-const sequelWord = anyOf(
-  '前編', '中編', '後編', '前篇', '後篇',
-  '上巻', '中巻', '下巻', '上', '中', '下',
-  '序章', '最終話', '番外編', '完結編', '続', '改',
-  '総集編', '完全版', '新装版',
+const CUT_POINT = compile(
+  optionalSpace.and(anyOf(latinChapter, cjkChapter, seriesWord)),
+  ['g', 'i'],
 )
 
 /**
- * A bare number or sequel word counts only as the last whitespace token of its
- * group: `作品乙 5`, `作品乙 弐`, `作品乙 後編`, or the whole group (`作品乙・上`).
- * Japanese and Chinese titles glue an Arabic number to the last character
- * (`ほん5`, `本子5`), so after a CJK letter that form needs no space; kanji
- * numerals and sequel words still do (`唯一`, `天下` are words).
+ * Words too short to settle anything on their own — `上`, `中`, `下` also sit
+ * inside `以上`, `集中`, `天下`. Only position tells them apart, so they are read
+ * as the last whitespace token of a group. Corpus: 下 63%, 上 63%, 改 39% had a
+ * sibling or base work, but 下 appears inside another word 81.5% of the time.
+ */
+const positionOnlyWord = anyOf('続', '改', '上', '中', '下')
+
+/**
+ * A bare counter or short word counts only as the last whitespace token of its
+ * group: `作品乙 5`, `作品乙 弐`, or the whole group (`作品乙・上`). Japanese and
+ * Chinese titles glue an Arabic number to the last character (`ほん5`, `本子5`),
+ * so after a CJK letter that form needs no space; kanji numerals and short words
+ * still do (`唯一`, `天下` are words).
  */
 const TRAILING_NUMBER = compile(
   anyOf(
-    anyOf(counter, cjkCounter, romanCounter, sequelWord).after(anyOf(whitespace, start)),
+    anyOf(counter, cjkCounter, romanCounter, seriesWord, positionOnlyWord).after(anyOf(whitespace, start)),
     counter.after(cjkLetter),
   ).and(end),
   ['i'],
@@ -115,22 +151,19 @@ function unlessNotNumeral(replacement: string) {
 }
 
 /**
- * Markers out of the work text.
+ * Bare counters and sequel words out of each group's last whitespace token.
  *
- * A labelled form (`Ch. 3`, `第3話`) is taken wherever it sits — the label
- * itself settles what the number means. A bare counter or sequel word is taken
- * only as the last whitespace token of a group, and that is what leaves `天下`,
- * `中出`, `続行` and `改造` alone: a Japanese compound puts neither space nor
- * punctuation before its last character. Corpus: the condition takes `中` from
- * 274,586 occurrences down to 206, `下` from 25,587 to 596 and `改` from 7,769
- * to 327, while `最終話` keeps 73.3% of its own and `後編` 52.1%.
+ * That position is what leaves `天下`, `集中`, `続行` and `改造` alone: a Japanese
+ * compound puts neither space nor punctuation before its last character. Corpus:
+ * the condition takes `中` from 274,586 occurrences down to 206, `下` from 25,587
+ * to 596 and `改` from 7,769 to 327, while `最終話` keeps 73.3% of its own and
+ * `後編` 52.1%.
  *
  * A group emptied by the strip takes its separator with it, so `作品乙 後編。`
  * reads as `作品乙` rather than keeping a dangling `。`.
  */
-export function stripChapterMarkers(text: string): string {
-  const withoutChapters = text.replace(CHAPTER_MARKER, unlessNotNumeral(' ')).split(whitespaceRun).filter(Boolean).join(' ')
-  const parts = withoutChapters.split(GROUP_SEPARATOR)
+function stripGroupTails(text: string, alreadyStripped = false): string {
+  const parts = text.split(GROUP_SEPARATOR)
   const kept: string[] = []
   let removedAnything = false
   for (let index = 0; index < parts.length; index += 2) {
@@ -143,9 +176,101 @@ export function stripChapterMarkers(text: string): string {
   }
   // No marker found means no reason to touch the text: a title that merely ends
   // in punctuation (`作品乙。`) keeps it, and so does one with padded separators.
-  if (!removedAnything) return withoutChapters
+  if (!removedAnything && !alreadyStripped) return text
   // Everything stripped means the text was the counter, not a work plus one:
   // a digit-only title (`7`) keeps its own text and is filtered further up.
   const stripped = kept.join('')
-  return stripped || withoutChapters
+  return stripped || text
+}
+
+/** First cut point whose CJK numeral, if any, is a real number. */
+function firstCutPoint(text: string): { index: number; length: number } | null {
+  CUT_POINT.lastIndex = 0
+  for (let match = CUT_POINT.exec(text); match; match = CUT_POINT.exec(text)) {
+    const numeral = match.groups?.cjkNumeral
+    if (numeral !== undefined && parseCjkNumeral(numeral) === null) continue
+    return { index: match.index, length: match[0].length }
+  }
+  return null
+}
+
+const HAS_LETTER = compile(letter)
+// `standalone` keeps the `V` of `Vol.` from reading as a roman counter.
+const COUNTER_IN_MARKER = compile(anyOf(counter, cjkCounter, standalone(romanCounter)), ['i'])
+/** `Vol. 02` → `02`, `第十二巻` → `十二`, `後編` → `後編`: a series word is its own counter. */
+function counterIn(marker: string): string {
+  const found = COUNTER_IN_MARKER.exec(marker.trim())
+  return found ? found[0] : marker.trim()
+}
+
+/**
+ * Marks that carry no work text when they sit at the edge of a phrase, so a
+ * phrase is trimmed of them before it is searched. Editions in different
+ * languages punctuate the same title differently, and a cut leaves whatever
+ * bracketed the marker dangling.
+ *
+ * Harvested from the corpus: 80 characters open or close a coreText at least 200
+ * times each, and 77 of them are `\p{P}` or `\p{S}` — punctuation, brackets,
+ * arrows, hearts, the whole emoji range. These three are what the classes miss:
+ *
+ * - `U+FE0F` / `U+FE0E` variation selectors, category `Mn`, hide behind an emoji
+ *   (`❤️` is `❤` plus `U+FE0F`), so without them an emoji tail never comes off
+ *   (1,750 and 455 occurrences)
+ * - `ー` the prolonged sound mark, category `Lm`: it stretches the sound before
+ *   it rather than adding work text, so `作品乙ー` and `作品乙` retrieve the same
+ *   galleries
+ */
+const edgeExtras = charIn('\uFE0F\uFE0Eー')
+const edgeMark = anyOf(punctuation, whitespace, edgeExtras)
+const EDGE_NOISE = compile(
+  anyOf(
+    oneOrMore(edgeMark).after(start),
+    oneOrMore(edgeMark).and(end),
+  ),
+  ['g'],
+)
+
+const trimEdges = (text: string) => text.replace(EDGE_NOISE, '')
+
+export interface WorkText {
+  /** what to search for: the segment up to its first marker */
+  phrase: string
+  /** which part of the series this is, label dropped: `Ch. 10` and `10` both read `10` */
+  counter: string
+}
+
+/**
+ * One title segment read as a work plus its position in a series.
+ *
+ * The marker is a boundary, not something to lift out: ehwiki `Renaming` puts it
+ * after the work title, so the text before it is the work and the text after it
+ * is a subtitle or a note. Corpus (256,762 ` | ` segments): the left side is the
+ * longer one in 64.5% of the cases where the two sides differ, and the 32.1%
+ * where the right side is longer are subtitles longer than the work they belong
+ * to, not works.
+ *
+ * Cutting rather than removing matters twice over. A phrase joined across the
+ * marker is a string the title never contained — 1,684 segments, 5.8% of the ones
+ * a marker touches — and such a phrase cannot retrieve the source gallery itself,
+ * which is what the first-page signal in `pipeline.ts` reads. The counter also
+ * comes out clean: recovering it from the difference between the two strings used
+ * to pull the subtitle in with it, so `… Vol. 02 Gamma` and `… Vol. 02 副題甲`
+ * read as different parts instead of one part in two languages.
+ *
+ * A marker that opens the segment leaves only the right side. Bare counters and
+ * short words are not boundaries — a number sits inside work text far too often
+ * (`作品乙 其の2 作品丙`) — so they are read as the last token of a group instead.
+ */
+export function readWorkText(text: string): WorkText {
+  const marker = firstCutPoint(text)
+  if (marker === null) {
+    const phrase = stripGroupTails(text)
+    return { phrase: trimEdges(phrase), counter: phrase === text ? '' : counterIn(text.slice(phrase.length)) }
+  }
+  const left = text.slice(0, marker.index).trim()
+  const right = text.slice(marker.index + marker.length).trim()
+  return {
+    phrase: trimEdges(stripGroupTails(HAS_LETTER.test(left) ? left : right, true)),
+    counter: counterIn(text.slice(marker.index, marker.index + marker.length)),
+  }
 }

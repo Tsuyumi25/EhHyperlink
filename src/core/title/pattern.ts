@@ -39,6 +39,11 @@ export const whitespace = unicode('White_Space')
 export const cjkLetter = raw('[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}ー]')
 export const start = raw('^')
 export const end = raw('$')
+/**
+ * Punctuation or symbol: never work text on its own, and editions in different
+ * languages punctuate the same title differently (`〜を教えて!` against `！`).
+ */
+export const punctuation = raw('[\\p{P}\\p{S}]')
 
 /** Zero or more whitespace characters. */
 export const optionalSpace = whitespace.times.any()

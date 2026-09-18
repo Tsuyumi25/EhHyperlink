@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stripChapterMarkers } from '../title/chapter'
+import { readWorkText } from '../title/chapter'
 import type { SourceGallery } from '../eh/galleryPage'
 import { creatorScope, editionTermsOf, planSearch } from './searchPlan'
 
@@ -15,75 +15,127 @@ const source: SourceGallery = {
 
 describe('chapter markers', () => {
   it('drops ehwiki chapter and volume forms wherever they sit', () => {
-    expect(stripChapterMarkers('Work Gamma Ch. 1-7')).toBe('Work Gamma')
-    expect(stripChapterMarkers('作品丙 第1-7話')).toBe('作品丙')
-    expect(stripChapterMarkers('Work Gamma Vol. 8')).toBe('Work Gamma')
-    expect(stripChapterMarkers('作品丙 第8巻')).toBe('作品丙')
-    expect(stripChapterMarkers('Work Gamma Ch.3')).toBe('Work Gamma')
-    expect(stripChapterMarkers('Chapter 3 Alpha Beta')).toBe('Alpha Beta')
+    expect(readWorkText('Work Gamma Ch. 1-7').phrase).toBe('Work Gamma')
+    expect(readWorkText('作品丙 第1-7話').phrase).toBe('作品丙')
+    expect(readWorkText('Work Gamma Vol. 8').phrase).toBe('Work Gamma')
+    expect(readWorkText('作品丙 第8巻').phrase).toBe('作品丙')
+    expect(readWorkText('Work Gamma Ch.3').phrase).toBe('Work Gamma')
+    expect(readWorkText('Chapter 3 Alpha Beta').phrase).toBe('Alpha Beta')
   })
 
   it('drops a bare trailing series number only, decimals included', () => {
-    expect(stripChapterMarkers('作品丁を教えて! 5')).toBe('作品丁を教えて!')
-    expect(stripChapterMarkers('Alpha x Beta x Gamma 3')).toBe('Alpha x Beta x Gamma')
-    expect(stripChapterMarkers('Alpha x Beta x Gamma 4.5')).toBe('Alpha x Beta x Gamma')
-    expect(stripChapterMarkers('作品丁のほん5')).toBe('作品丁のほん')
-    expect(stripChapterMarkers('作品丁本子5')).toBe('作品丁本子')
-    expect(stripChapterMarkers('Alpha5')).toBe('Alpha5')
-    expect(stripChapterMarkers('唯一')).toBe('唯一')
-    expect(stripChapterMarkers('Work Delta 2.0')).toBe('Work Delta')
-    expect(stripChapterMarkers('Work Gamma Ch. 4.5')).toBe('Work Gamma')
-    expect(stripChapterMarkers('作品丙 第4.5話')).toBe('作品丙')
-    expect(stripChapterMarkers('Volume Trader')).toBe('Volume Trader')
-    expect(stripChapterMarkers('Route 2024')).toBe('Route 2024')
-    expect(stripChapterMarkers('Version 1.2.3')).toBe('Version 1.2.3')
-    expect(stripChapterMarkers('7')).toBe('7')
+    expect(readWorkText('作品丁を教えて! 5').phrase).toBe('作品丁を教えて')
+    expect(readWorkText('Alpha x Beta x Gamma 3').phrase).toBe('Alpha x Beta x Gamma')
+    expect(readWorkText('Alpha x Beta x Gamma 4.5').phrase).toBe('Alpha x Beta x Gamma')
+    expect(readWorkText('作品丁のほん5').phrase).toBe('作品丁のほん')
+    expect(readWorkText('作品丁本子5').phrase).toBe('作品丁本子')
+    expect(readWorkText('Alpha5').phrase).toBe('Alpha5')
+    expect(readWorkText('唯一').phrase).toBe('唯一')
+    expect(readWorkText('Work Delta 2.0').phrase).toBe('Work Delta')
+    expect(readWorkText('Work Gamma Ch. 4.5').phrase).toBe('Work Gamma')
+    expect(readWorkText('作品丙 第4.5話').phrase).toBe('作品丙')
+    expect(readWorkText('Volume Trader').phrase).toBe('Volume Trader')
+    expect(readWorkText('Route 2024').phrase).toBe('Route 2024')
+    expect(readWorkText('Version 1.2.3').phrase).toBe('Version 1.2.3')
+    expect(readWorkText('7').phrase).toBe('7')
   })
   it('reads CJK numeral counters and leaves non-numeral kanji runs alone', () => {
-    expect(stripChapterMarkers('作品丙 第三話')).toBe('作品丙')
-    expect(stripChapterMarkers('作品丙 第十二巻')).toBe('作品丙')
-    expect(stripChapterMarkers('作品丙 第一百零二话')).toBe('作品丙')
-    expect(stripChapterMarkers('作品丙 弐')).toBe('作品丙')
-    expect(stripChapterMarkers('作品丙 十十')).toBe('作品丙 十十')
-    expect(stripChapterMarkers('第三話')).toBe('')
+    expect(readWorkText('作品丙 第三話').phrase).toBe('作品丙')
+    expect(readWorkText('作品丙 第十二巻').phrase).toBe('作品丙')
+    expect(readWorkText('作品丙 第一百零二话').phrase).toBe('作品丙')
+    expect(readWorkText('作品丙 弐').phrase).toBe('作品丙')
+    expect(readWorkText('作品丙 十十').phrase).toBe('作品丙 十十')
+    expect(readWorkText('第三話').phrase).toBe('')
   })
 
   it('drops a trailing roman counter but keeps X forms', () => {
-    expect(stripChapterMarkers('Work Gamma II')).toBe('Work Gamma')
-    expect(stripChapterMarkers('Work Gamma iv')).toBe('Work Gamma')
+    expect(readWorkText('Work Gamma II').phrase).toBe('Work Gamma')
+    expect(readWorkText('Work Gamma iv').phrase).toBe('Work Gamma')
     expect(planSearch({ ...source, title: '[作者甲] 作品丙 Ⅲ' }).editionTerms).toEqual(['作品丙'])
-    expect(stripChapterMarkers('Work Gamma X')).toBe('Work Gamma X')
-    expect(stripChapterMarkers('Work Gamma XXX')).toBe('Work Gamma XXX')
-    expect(stripChapterMarkers('Work Gammavii')).toBe('Work Gammavii')
+    expect(readWorkText('Work Gamma X').phrase).toBe('Work Gamma X')
+    expect(readWorkText('Work Gamma XXX').phrase).toBe('Work Gamma XXX')
+    expect(readWorkText('Work Gammavii').phrase).toBe('Work Gammavii')
   })
 
-  it('drops a trailing sequel or edition word but not a subtitle', () => {
-    expect(stripChapterMarkers('作品丙 後編')).toBe('作品丙')
-    expect(stripChapterMarkers('作品丙 上巻')).toBe('作品丙')
-    expect(stripChapterMarkers('作品丙 総集編')).toBe('作品丙')
-    expect(stripChapterMarkers('作品丙 花')).toBe('作品丙 花')
-    expect(stripChapterMarkers('作品丙後編')).toBe('作品丙後編')
+  it('drops a series word as a group tail, but not a subtitle', () => {
+    expect(readWorkText('作品丙 後編').phrase).toBe('作品丙')
+    expect(readWorkText('作品丙 上巻').phrase).toBe('作品丙')
+    expect(readWorkText('作品丙 総集編').phrase).toBe('作品丙')
+    expect(readWorkText('作品丙 花').phrase).toBe('作品丙 花')
+    expect(readWorkText('作品丙・番外篇').phrase).toBe('作品丙')
+    // the text of a multi-character series word settles its own meaning, so no space is needed
+    expect(readWorkText('作品丙後編').phrase).toBe('作品丙')
+    // Chinese and variant forms read the same as the kanji ones
+    expect(readWorkText('作品丙 后篇').phrase).toBe('作品丙')
+    expect(readWorkText('作品丙 总集篇').phrase).toBe('作品丙')
+    // a short word still needs the position: 天下 keeps its 下
+    expect(readWorkText('作品丙 天下').phrase).toBe('作品丙 天下')
   })
 
   it('reads a marker at the end of any group, not only of the whole text', () => {
     // punctuation after the marker no longer hides it, and the emptied group takes its separator
-    expect(stripChapterMarkers('作品乙 後編。')).toBe('作品乙')
-    expect(stripChapterMarkers('作品甲、作品乙。2')).toBe('作品甲、作品乙')
+    expect(readWorkText('作品乙 後編。').phrase).toBe('作品乙')
+    expect(readWorkText('作品甲、作品乙。2').phrase).toBe('作品甲、作品乙')
     // punctuation before the marker no longer hides it either
-    expect(stripChapterMarkers('作品甲・作品乙・後編')).toBe('作品甲・作品乙')
-    expect(stripChapterMarkers('作品甲〜作品乙〜後編')).toBe('作品甲〜作品乙')
-    expect(stripChapterMarkers('作品乙・上')).toBe('作品乙')
+    expect(readWorkText('作品甲・作品乙・後編').phrase).toBe('作品甲・作品乙')
+    expect(readWorkText('作品甲〜作品乙〜後編').phrase).toBe('作品甲〜作品乙')
+    expect(readWorkText('作品乙・上').phrase).toBe('作品乙')
     // a compound still has neither space nor punctuation before its last character
-    expect(stripChapterMarkers('作品乙、天下')).toBe('作品乙、天下')
-    expect(stripChapterMarkers('作品乙。改造')).toBe('作品乙。改造')
+    expect(readWorkText('作品乙、天下').phrase).toBe('作品乙、天下')
+    expect(readWorkText('作品乙。改造').phrase).toBe('作品乙。改造')
     // the separators that carry counters of their own stay out of the split
-    expect(stripChapterMarkers('COMIC Alphabeta Monthly 2002-11')).toBe('COMIC Alphabeta Monthly 2002-11')
-    expect(stripChapterMarkers('作品乙 3／4')).toBe('作品乙 3／4')
-    // `ー` is a letter, not a separator: it ends words, and a counter after it still reads
-    expect(stripChapterMarkers('作品乙ー後編ー')).toBe('作品乙ー後編ー')
-    expect(stripChapterMarkers('作品乙カラー9')).toBe('作品乙カラー')
-    // a title that only ends in punctuation is left alone
-    expect(stripChapterMarkers('作品乙。')).toBe('作品乙。')
+    expect(readWorkText('COMIC Alphabeta Monthly 2002-11').phrase).toBe('COMIC Alphabeta Monthly 2002-11')
+    expect(readWorkText('作品乙 3／4').phrase).toBe('作品乙 3／4')
+    // `ー` is a letter by category, so a counter glued after it still reads as one,
+    // but at an edge it carries no work text and is trimmed with the other marks
+    expect(readWorkText('作品乙ー後編ー').phrase).toBe('作品乙')
+    expect(readWorkText('作品乙カラー9').phrase).toBe('作品乙カラ')
+    // punctuation at the edges goes with it: editions in other languages punctuate differently
+    expect(readWorkText('作品乙。').phrase).toBe('作品乙')
+  })
+})
+
+describe('work phrase', () => {
+  it('cuts at the first marker and keeps the work side', () => {
+    expect(readWorkText('Work Beta Vol. 02 Gamma').phrase).toBe('Work Beta')
+    expect(readWorkText('作品乙 第3話 副題甲').phrase).toBe('作品乙')
+    // several markers: the first one already ends the work title
+    expect(readWorkText('Work Beta Vol. 2 - Ch. 1-6').phrase).toBe('Work Beta')
+    // a marker that opens the segment leaves only the right side
+    expect(readWorkText('Chapter 3 Work Beta').phrase).toBe('Work Beta')
+    // a series word cuts wherever it sits, glued or wrapped in punctuation
+    expect(readWorkText('作品丙後編').phrase).toBe('作品丙')
+    expect(readWorkText('作品乙ー後編ー').phrase).toBe('作品乙')
+    expect(readWorkText('作品乙 后篇').phrase).toBe('作品乙')
+  })
+
+  it('stays a substring of its segment, so the source retrieves itself', () => {
+    for (const segment of ['Work Beta Vol. 02 Gamma', '作品乙 第3話 副題甲', 'Work Beta Vol. 2 - Ch. 1-6', '作品乙。2', 'Work Beta 5']) {
+      expect(segment).toContain(readWorkText(segment).phrase)
+    }
+  })
+
+  it('falls back to group tails when no label is present', () => {
+    expect(readWorkText('Work Beta 5').phrase).toBe('Work Beta')
+    expect(readWorkText('作品乙。2').phrase).toBe('作品乙')
+    expect(readWorkText('作品乙・上').phrase).toBe('作品乙')
+    expect(readWorkText('Work Beta').phrase).toBe('Work Beta')
+    expect(readWorkText('作品乙、天下').phrase).toBe('作品乙、天下')
+  })
+
+  it('reads the counter with the label dropped and the subtitle left out', () => {
+    // the same part in two languages: the subtitle differs, the counter does not
+    expect(readWorkText('Work Beta Vol. 02 Gamma')).toEqual({ phrase: 'Work Beta', counter: '02' })
+    expect(readWorkText('Work Beta Vol. 02 副題甲')).toEqual({ phrase: 'Work Beta', counter: '02' })
+    // the label drops out, so `Ch. 10` and a bare `10` agree
+    expect(readWorkText('Work Beta Ch. 10').counter).toBe('10')
+    expect(readWorkText('Work Beta 10').counter).toBe('10')
+    expect(readWorkText('作品乙 第3話').counter).toBe('3')
+    expect(readWorkText('作品乙 第十二巻').counter).toBe('十二')
+    // a series word is its own counter, so 前編 and 後編 read as different parts
+    expect(readWorkText('作品乙 前編').counter).toBe('前編')
+    expect(readWorkText('作品乙 後編').counter).toBe('後編')
+    expect(readWorkText('Work Beta').counter).toBe('')
   })
 })
 

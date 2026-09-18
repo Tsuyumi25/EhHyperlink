@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { Book, EditionFlag, EditionGroup } from '@/core/pipeline'
 import { displayTitle, subtitle } from '@/settings'
 import { locale, type MessageKey, t } from '@/i18n'
@@ -11,7 +11,53 @@ const FLAG_LABELS: Record<EditionFlag, MessageKey> = {
   'extraneous ads': 'extraneousAds',
 }
 
-defineProps<{ groups: EditionGroup[]; showScore: boolean }>()
+const props = defineProps<{ groups: EditionGroup[]; showScore: boolean; active: boolean }>()
+
+/**
+ * Covers already asked for, so reopening a panel asks again for nothing. The
+ * `Image` objects are not kept: the request outlives them and lands in the HTTP
+ * cache, which is what the `<img>` reads from on hover.
+ */
+const requested = new Set<string>()
+
+/** Cover of each row, in the order the rows are laid out. */
+const rowCovers = computed(() => props.groups.flatMap((group) => group.books.flatMap((book) => book.releases.map((release) => release.hit.thumb))))
+
+/**
+ * Covers fetched when the panel opens rather than when a row is hovered: a hover
+ * that starts its own round trip shows an empty frame first, and there is time to
+ * spare between the badge opening the panel and the pointer reaching a row.
+ *
+ * Top down, and only as far as the bottom of the window. DOM order is layout
+ * order here, so the first row past the fold ends the walk — a long list of 40
+ * rows would otherwise fetch 40 covers for the three or four a reader sees.
+ * A row further down still loads its own cover when hovered.
+ *
+ * `fetchpriority=low` puts these behind whatever the host page is still loading
+ * — we are a guest on someone else's document.
+ */
+function prefetchVisibleCovers(): void {
+  const rows = listEl.value?.querySelectorAll<HTMLElement>('li li')
+  if (!rows) return
+  const covers = rowCovers.value
+  for (const [index, row] of [...rows].entries()) {
+    if (row.getBoundingClientRect().top >= window.innerHeight) break
+    const url = covers[index]
+    if (!url || requested.has(url)) continue
+    requested.add(url)
+    const image = new Image()
+    image.setAttribute('fetchpriority', 'low')
+    image.decoding = 'async'
+    image.referrerPolicy = 'no-referrer'
+    image.src = url
+  }
+}
+
+// the panel is `display: none` until its unit carries the open class, and a
+// hidden row measures as a zero-height box at the top of the window
+watch(() => props.active, (active) => {
+  if (active) void nextTick(prefetchVisibleCovers)
+})
 
 function percent(score: number): string {
   return `${Math.round(score * 100)}%`

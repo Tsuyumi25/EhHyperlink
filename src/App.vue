@@ -108,7 +108,7 @@ function toggle(id: string): void {
       <template v-if="result">
         <div v-for="badge in badges" :key="badge.id" class="ehl-unit" :class="{ 'ehl-unit--open': open === badge.id }" @mouseenter="hovered = badge.id" @mouseleave="hovered = null">
           <button type="button" class="ehl-badge" :title="badge.title" @click="toggle(badge.id)">{{ badge.label }}</button>
-          <GroupList :groups="badge.groups" :show-score="badge.showScore" />
+          <GroupList :groups="badge.groups" :show-score="badge.showScore" :active="open === badge.id" />
         </div>
         <div v-if="result.containers.length > 0" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'containers' }" @mouseenter="hovered = 'containers'" @mouseleave="hovered = null">
           <button type="button" class="ehl-badge ehl-badge--container" :title="t('containerTitle')" @click="toggle('containers')">{{ t('container') }}</button>

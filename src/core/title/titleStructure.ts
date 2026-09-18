@@ -14,6 +14,12 @@ export const DELIMITER_PAIRS: Record<string, string> = {
   '『': '』',
   '《': '》',
   '〈': '〉',
+  /**
+   * The ASCII pair is rare (1,454 fields) and unbalanced in 255 of them, almost
+   * all `<3` and `->`. Those become bad samples, which is what the balance rule
+   * already does with an unclosed bracket; the 1,220 balanced ones are worth it.
+   */
+  '<': '>',
   '〔': '〕',
   '｢': '｣',
   '〖': '〗',
@@ -39,12 +45,32 @@ const OPEN_BY_CLOSE: Record<string, string> = Object.fromEntries(
   Object.entries(DELIMITER_PAIRS).map(([opening, closing]) => [closing, opening]),
 )
 const IDENTITY_PAIRS: Record<string, true> = { '[]': true, '【】': true, '〔〕': true, '〖〗': true, '〘〙': true, '❲❳': true }
-const CONTEXT_PAIRS: Record<string, true> = { '()': true, '︵︶': true, '⟮⟯': true, '₍₎': true, '﹙﹚': true, '﴿﴾': true }
+/**
+ * Context blocks: a parody, a note, a marker — never the work title itself, and
+ * the marker table is allowed to claim them.
+ *
+ * The angle brackets belong here rather than with the title quotes. `〈…〉` holds
+ * a marker in the corpus (842 pairs: `2d图集` 47, `前編` 42, `後編` 36, `第1話` 24,
+ * `総集編` 18), and so does the ASCII `<…>` (1,220 pairs, 710 of them the
+ * AI-generated marker) — while `《…》` holds the work title itself (2,894 pairs,
+ * its top entries are work names) and stays a title quote. Reading them as title
+ * text put the marker into a search phrase, and kept it out of reach of the
+ * marker table, which skips title quotes on purpose.
+ */
+const CONTEXT_PAIRS: Record<string, true> = {
+  '()': true,
+  '<>': true,
+  '〈〉': true,
+  '︵︶': true,
+  '⟮⟯': true,
+  '₍₎': true,
+  '﹙﹚': true,
+  '﴿﴾': true,
+}
 const TITLE_QUOTE_PAIRS: Record<string, true> = {
   '「」': true,
   '『』': true,
   '《》': true,
-  '〈〉': true,
   '〝〟': true,
   '❬❭': true,
   '❰❱': true,

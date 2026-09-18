@@ -13,6 +13,21 @@ describe('structural title cleaning', () => {
     expect(analyzeTitle('『人生』 《第二章》').core).toBe('人生 第二章')
   })
 
+  it('reads both angle forms as context, not as title text', () => {
+    // the corpus puts a marker in these, so the phrase must not carry it
+    expect(analyzeTitle('[Circle Alpha] Work Beta <Zenpen>').coreSegments).toEqual(['Work Beta'])
+    expect(analyzeTitle('[圓環甲] 作品乙〈前編〉').coreSegments).toEqual(['作品乙'])
+    expect(analyzeTitle('[圓環甲] 作品乙 <前編>').coreSegments).toEqual(['作品乙'])
+    // the marker table can claim them now, which a title quote is never offered to:
+    // a claimed block reaches neither the phrase nor the context
+    const claimed = analyzeTitle('[Circle Alpha] Work Beta <English>')
+    expect(claimed.coreSegments).toEqual(['Work Beta'])
+    expect(claimed.context).toBe('')
+    expect(markerOf('English')).toEqual({ role: 'language', lang: 'english' })
+    // an unpaired `<` is an unbalanced title, as any unclosed bracket is
+    expect(analyzeTitle('I <3 U 2').balanced).toBe(false)
+  })
+
   it('discards nested identity metadata', () => {
     expect(analyzeTitle('[Circle (Artist)] Work Title').core).toBe('work title')
   })

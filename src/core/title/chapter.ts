@@ -1,6 +1,6 @@
 import { anyOf, charIn, exactly, maybe } from 'magic-regexp'
 import { CJK_NUMERAL_CHARACTERS, parseCjkNumeral } from './cjkNumeral'
-import { cjkLetter, compile, digit, end, optionalSpace, standalone, whitespace, whitespaceRun } from './pattern'
+import { cjkLetter, compile, digit, end, optionalSpace, standalone, start, whitespace, whitespaceRun } from './pattern'
 
 /**
  * Chapter and volume markers inside the unwrapped work text.
@@ -74,18 +74,36 @@ const sequelWord = anyOf(
 )
 
 /**
- * A bare number or sequel word counts only at the very end: `Work Title 5`,
- * `Work Title 弐`, `Work Title 後編`. Japanese and Chinese titles glue an Arabic
- * number to the last character (`ほん5`, `本子5`), so after a CJK letter that form
- * needs no space; kanji numerals and sequel words still do (`唯一`, `天下` are words).
+ * A bare number or sequel word counts only as the last whitespace token of its
+ * group: `作品乙 5`, `作品乙 弐`, `作品乙 後編`, or the whole group (`作品乙・上`).
+ * Japanese and Chinese titles glue an Arabic number to the last character
+ * (`ほん5`, `本子5`), so after a CJK letter that form needs no space; kanji
+ * numerals and sequel words still do (`唯一`, `天下` are words).
  */
 const TRAILING_NUMBER = compile(
   anyOf(
-    whitespace.times.atLeast(1).and(anyOf(counter, cjkCounter, romanCounter, sequelWord)),
+    anyOf(counter, cjkCounter, romanCounter, sequelWord).after(anyOf(whitespace, start)),
     counter.after(cjkLetter),
   ).and(end),
   ['i'],
 )
+
+/**
+ * Punctuation that closes a group inside the work text. A bare counter or sequel
+ * word is read per group rather than only at the end of the whole string, which
+ * is what reaches `作品乙。2`, `作品甲〜作品乙〜後編` and `作品乙・上`.
+ *
+ * Separators that carry counters of their own stay out. Corpus (every fifth
+ * gallery) counts the group tails each would turn into a bare number: `-`
+ * 39,566, `.` 27,579, `/` 6,236, `:` 2,248, `+` 1,241 — issue numbers
+ * (`2002-11`), `Vol. 1`'s own period, fractions (`1/2`, `３／４`).
+ *
+ * `ー` stays out for the opposite reason: it is a letter — the prolonged sound
+ * mark that ends words like `カラー` and `カンパニー`. Splitting on it cut the mark
+ * off 1,270 titles; it belongs in `cjkLetter` instead, where `カラー9` reads as a
+ * counter glued to the word.
+ */
+const GROUP_SEPARATOR = compile(charIn('。、！？〜～・').as('separator'))
 
 /** A CJK run that is not actually a numeral (`十十`, `千`) is left in place. */
 function unlessNotNumeral(replacement: string) {
@@ -96,7 +114,38 @@ function unlessNotNumeral(replacement: string) {
   }
 }
 
+/**
+ * Markers out of the work text.
+ *
+ * A labelled form (`Ch. 3`, `第3話`) is taken wherever it sits — the label
+ * itself settles what the number means. A bare counter or sequel word is taken
+ * only as the last whitespace token of a group, and that is what leaves `天下`,
+ * `中出`, `続行` and `改造` alone: a Japanese compound puts neither space nor
+ * punctuation before its last character. Corpus: the condition takes `中` from
+ * 274,586 occurrences down to 206, `下` from 25,587 to 596 and `改` from 7,769
+ * to 327, while `最終話` keeps 73.3% of its own and `後編` 52.1%.
+ *
+ * A group emptied by the strip takes its separator with it, so `作品乙 後編。`
+ * reads as `作品乙` rather than keeping a dangling `。`.
+ */
 export function stripChapterMarkers(text: string): string {
   const withoutChapters = text.replace(CHAPTER_MARKER, unlessNotNumeral(' ')).split(whitespaceRun).filter(Boolean).join(' ')
-  return withoutChapters.replace(TRAILING_NUMBER, unlessNotNumeral(''))
+  const parts = withoutChapters.split(GROUP_SEPARATOR)
+  const kept: string[] = []
+  let removedAnything = false
+  for (let index = 0; index < parts.length; index += 2) {
+    const group = parts[index].trim()
+    const shorter = group.replace(TRAILING_NUMBER, unlessNotNumeral('')).trim()
+    if (shorter !== group) removedAnything = true
+    if (!shorter) continue
+    if (kept.length > 0) kept.push(parts[index - 1])
+    kept.push(shorter)
+  }
+  // No marker found means no reason to touch the text: a title that merely ends
+  // in punctuation (`作品乙。`) keeps it, and so does one with padded separators.
+  if (!removedAnything) return withoutChapters
+  // Everything stripped means the text was the counter, not a work plus one:
+  // a digit-only title (`7`) keeps its own text and is filtered further up.
+  const stripped = kept.join('')
+  return stripped || withoutChapters
 }

@@ -64,6 +64,27 @@ describe('chapter markers', () => {
     expect(stripChapterMarkers('作品丙 花')).toBe('作品丙 花')
     expect(stripChapterMarkers('作品丙後編')).toBe('作品丙後編')
   })
+
+  it('reads a marker at the end of any group, not only of the whole text', () => {
+    // punctuation after the marker no longer hides it, and the emptied group takes its separator
+    expect(stripChapterMarkers('作品乙 後編。')).toBe('作品乙')
+    expect(stripChapterMarkers('作品甲、作品乙。2')).toBe('作品甲、作品乙')
+    // punctuation before the marker no longer hides it either
+    expect(stripChapterMarkers('作品甲・作品乙・後編')).toBe('作品甲・作品乙')
+    expect(stripChapterMarkers('作品甲〜作品乙〜後編')).toBe('作品甲〜作品乙')
+    expect(stripChapterMarkers('作品乙・上')).toBe('作品乙')
+    // a compound still has neither space nor punctuation before its last character
+    expect(stripChapterMarkers('作品乙、天下')).toBe('作品乙、天下')
+    expect(stripChapterMarkers('作品乙。改造')).toBe('作品乙。改造')
+    // the separators that carry counters of their own stay out of the split
+    expect(stripChapterMarkers('COMIC Alphabeta Monthly 2002-11')).toBe('COMIC Alphabeta Monthly 2002-11')
+    expect(stripChapterMarkers('作品乙 3／4')).toBe('作品乙 3／4')
+    // `ー` is a letter, not a separator: it ends words, and a counter after it still reads
+    expect(stripChapterMarkers('作品乙ー後編ー')).toBe('作品乙ー後編ー')
+    expect(stripChapterMarkers('作品乙カラー9')).toBe('作品乙カラー')
+    // a title that only ends in punctuation is left alone
+    expect(stripChapterMarkers('作品乙。')).toBe('作品乙。')
+  })
 })
 
 describe('search planning', () => {

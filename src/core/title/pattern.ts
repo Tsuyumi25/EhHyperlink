@@ -30,8 +30,13 @@ export function notUnicode<C extends string>(category: C): Input<`\\P{${C}}`> {
 export const letter = unicode('L')
 export const digit = unicode('Nd')
 export const whitespace = unicode('White_Space')
-/** Han, hiragana or katakana: the scripts that glue a counter to the word before it (`ほん5`). */
-export const cjkLetter = raw('[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}]')
+/**
+ * Han, hiragana or katakana, plus `ー`: the scripts that glue a counter to the
+ * word before it (`ほん5`, `カラー9`). The prolonged sound mark is `Script=Common`
+ * — it serves both kana — so `Script=Katakana` misses it, yet it ends words and
+ * a counter after it is a counter.
+ */
+export const cjkLetter = raw('[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}ー]')
 export const start = raw('^')
 export const end = raw('$')
 

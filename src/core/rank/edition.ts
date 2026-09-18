@@ -128,36 +128,60 @@ export function toEdition(hit: SearchHit, score: number): Edition {
   return { hit, score, language: detectLanguage(hit.title, hit.tags), flags: editionFlags(hit.tags) }
 }
 
+/** The three relations a scored hit can hold to the source. */
+export interface ScoredHits {
+  /** the same book, another release */
+  editions: Edition[]
+  /** another book of the same series, established by a shared phrase or a named work */
+  series: Edition[]
+  /**
+   * Same creator and vocabulary the source itself uses, with nothing else
+   * settling the relation. A sequel written as free prose lands here, and so
+   * does an unrelated book of theirs that happens to reuse a word.
+   */
+  maybeSeries: Edition[]
+}
+
 /**
- * Score every hit against the source and split same-book editions from series
- * siblings.
+ * Score every hit against the source and sort it into one of the three
+ * relations.
  *
- * Two ways in. With the creator settled by tags, the host already filtered — the
- * search carried both the work phrase and the creator — so a shared phrase
- * admits the row and the score is left to describe it. Without that, the score
- * has to establish the relation itself and the threshold applies. A third route
- * reaches the series bucket for titles that share no phrase at all: the creator
+ * Two ways into `series`. With the creator settled by tags, the host already
+ * filtered — the search carried both the work phrase and the creator — so a
+ * shared phrase admits the row and the score is left to describe it. Without
+ * that, the score has to establish the relation itself and the threshold
+ * applies. A third route admits titles that share no phrase at all: the creator
  * is settled and one title names the other's work inside a block.
+ *
+ * `fixedRange` opens `maybeSeries`. The query was then a slice of this gallery's
+ * own title sent against one creator's shelf, so every row agrees on the person
+ * and on vocabulary the source uses — which is what the slices were cut to
+ * find, and also what an unrelated book of theirs can satisfy by accident. The
+ * relation stays unproven, so these are kept apart from `series` rather than
+ * mixed into it. `sharesWorkPhrase` still earns the express route: clearing it
+ * means the phrase itself matched, so `relationOf` can tell an edition of the
+ * same book from a sibling.
  */
-export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[]): { editions: Edition[]; series: Edition[] } {
+export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[], fixedRange = false): ScoredHits {
   const editions: Edition[] = []
   const series: Edition[] = []
+  const maybeSeries: Edition[] = []
   for (const hit of hits) {
     if (hasAiGeneratedTag(hit.tags)) continue
     const creators = creatorVerdict(source.tags, hit.tags)
     const titles = [source.title, source.titleJpn, hit.title, hit.titleJpn] as const
     const score = galleryTitleSimilarity(...titles, creators)
-    const admitted =
-      creators === 'same'
-        ? !relationshipIsBlocked(...titles, creators) && sharesWorkPhrase(...titles)
-        : score >= SIMILARITY_THRESHOLD
+    const blocked = relationshipIsBlocked(...titles, creators)
+    const admitted = creators === 'same' ? !blocked && sharesWorkPhrase(...titles) : score >= SIMILARITY_THRESHOLD
     if (admitted) {
       ;(relationOf(source, hit) === 'edition' ? editions : series).push(toEdition(hit, score))
-    } else if (!relationshipIsBlocked(...titles, creators) && creatorsAgree(...titles, creators) && mentionsWork(...titles)) {
+    } else if (!blocked && creatorsAgree(...titles, creators) && mentionsWork(...titles)) {
       series.push(toEdition(hit, SIMILARITY_THRESHOLD))
+    } else if (fixedRange && creators === 'same' && !blocked) {
+      maybeSeries.push(toEdition(hit, score))
     }
   }
-  return { editions, series }
+  return { editions, series, maybeSeries }
 }
 
 /**

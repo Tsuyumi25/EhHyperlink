@@ -65,6 +65,9 @@ const badges = computed<Badge[]>(() => {
     list.push({ id: 'editions', label: result.value.editions.map((group) => group.language.code).join(' · '), title: t('editionsTitle'), groups: result.value.editions, showScore: true })
   }
   if (result.value.series.length > 0) list.push({ id: 'series', label: t('series'), title: t('seriesTitle'), groups: result.value.series, showScore: true })
+  if (result.value.maybeSeries.length > 0) {
+    list.push({ id: 'maybeSeries', label: t('maybeSeries'), title: t('maybeSeriesTitle'), groups: result.value.maybeSeries, showScore: true })
+  }
   if (result.value.chapters.length > 0) list.push({ id: 'chapters', label: t('chapters'), title: t('chaptersTitle'), groups: result.value.chapters, showScore: false })
   return list
 })

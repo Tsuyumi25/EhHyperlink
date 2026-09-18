@@ -223,16 +223,35 @@ describe('work phrase', () => {
 })
 
 describe('search planning', () => {
+  // Two creators keep the whole-phrase path: an anthology sits on nobody's shelf.
+  const shared: SourceGallery = { ...source, tags: ['artist:artistalpha', 'artist:artistbeta'] }
+
   it('searches each title field by its written work text', () => {
-    const plan = planSearch({ ...source, titleJpn: '[作者甲] 作品乙' })
+    const plan = planSearch({ ...shared, titleJpn: '[作者甲] 作品乙' })
     expect(plan.editionTerms).toEqual(['Work Beta', '作品乙'])
     expect(plan.containerTerms).toEqual([])
   })
 
   it('reduces a romanized field and a kanji field to the same work', () => {
     // ehwiki romanizes the Japanese title, so one gallery writes the part two ways
-    const plan = planSearch({ ...source, title: '[Circle Alpha] Work Beta Kouhen', titleJpn: '[圓環甲] 作品乙 後編' })
+    const plan = planSearch({ ...shared, title: '[Circle Alpha] Work Beta Kouhen', titleJpn: '[圓環甲] 作品乙 後編' })
     expect(plan.editionTerms).toEqual(['Work Beta', '作品乙'])
+  })
+
+  it('cuts one slice from each field when a single creator fixes the range', () => {
+    // the scope already holds one person's shelf, so the query only has to
+    // outlive whatever the title does around it
+    const plan = planSearch({ ...source, title: '[Circle Alpha] Work Beta Kouhen 2', titleJpn: '[圓環甲] 作品乙丙 後編 2' })
+    expect(plan.editionTerms).toEqual(['作品', 'Beta'])
+  })
+
+  it('takes both slices from one field when the other is missing', () => {
+    expect(planSearch({ ...source, title: '[Circle Alpha] Work Beta Gamma' }).editionTerms).toEqual(['Work', 'Gamma'])
+    expect(planSearch({ ...source, title: '', titleJpn: '[圓環甲] 作品乙丙丁' }).editionTerms).toEqual(['作品', '丙丁'])
+  })
+
+  it('sends one term when the phrase is too short to cut in two', () => {
+    expect(planSearch({ ...source, title: '', titleJpn: '[作者甲] 作品乙' }).editionTerms).toEqual(['作品乙'])
   })
 
   it('skips digit-only and duplicate work text', () => {
@@ -243,7 +262,7 @@ describe('search planning', () => {
   it('searches each side of a translated-title bar minus its chapter marker', () => {
     expect(editionTermsOf('Work Beta 2 | Work Beta Translated Ch. 2')).toEqual(['Work Beta', 'Work Beta Translated'])
     const plan = planSearch({
-      ...source,
+      ...shared,
       category: 'Manga',
       title: '[Artist Alpha] Work Gamma Ch. 1-7 [Korean] [Some Team]',
       titleJpn: '[作者甲] 作品丙 第1-7話 [韓国翻訳]',

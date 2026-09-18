@@ -37,6 +37,14 @@ export const whitespace = unicode('White_Space')
  * a counter after it is a counter.
  */
 export const cjkLetter = raw('[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}ー]')
+/**
+ * Han alone, and kana alone. Corpus census: 239 distinct kana cover 17.6% of
+ * every character position in 3.36M titles, 6,529 distinct han cover 11.0% —
+ * one han character is 43x rarer than one kana on average, so a query built
+ * from han lands on far fewer galleries.
+ */
+export const han = raw('[\\p{Script=Han}]')
+export const kana = raw('[\\p{Script=Hiragana}\\p{Script=Katakana}ー]')
 export const start = raw('^')
 export const end = raw('$')
 /**

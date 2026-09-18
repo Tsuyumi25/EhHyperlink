@@ -1,5 +1,6 @@
 import { readWorkText } from '../title/chapter'
 import { type ContainerPlan, planContainerSearch } from './container'
+import { fragmentsOf } from './fragment'
 import type { SourceGallery } from '../eh/galleryPage'
 import { compile, letter } from '../title/pattern'
 import { analyzeTitle, TITLE_BAR } from '../title/titleStructure'
@@ -9,10 +10,43 @@ export interface SearchPlan extends ContainerPlan {
   editionTerms: string[]
   /** creator clause appended to every phrase search; empty when the gallery carries no creator tag */
   scope: string
+  /**
+   * True when `scope` names one creator and the terms are slices of this
+   * gallery's own title. The host then returns that creator's own shelf filtered
+   * by vocabulary the source itself uses, so a row needs no similarity of its
+   * own to be worth showing — see `scoreEditions`.
+   */
+  fixedRange: boolean
 }
 
 /** `artist:` / `group:` tag namespace → EH search prefix. */
 const CREATOR_SCOPES: Record<string, string> = { artist: 'a', group: 'g' }
+
+function clauseOf(tag: string): string | null {
+  const colon = tag.indexOf(':')
+  const prefix = CREATOR_SCOPES[tag.slice(0, colon)]
+  return prefix ? `${prefix}:"${tag.slice(colon + 1).replaceAll('_', ' ')}$"` : null
+}
+
+/**
+ * The one creator whose shelf this gallery belongs on, or null.
+ *
+ * An artist wins over a group: the artist's range already holds the work they
+ * published under that group, and the group's range holds other people's.
+ * Census of 953,584 creator-tagged Doujinshi/Manga — one artist with a group
+ * 51.2%, artist alone 38.2%, group alone 4.8%, so 94.2% land here.
+ *
+ * Two or more artists is a collaboration or an anthology (5.4%). That book sits
+ * on nobody's shelf as its own entry, so there is no fixed range to narrow to
+ * and the whole-phrase path keeps it.
+ */
+export function soleCreatorScope(tags: readonly string[]): string | null {
+  const artists = tags.filter((tag) => tag.startsWith('artist:'))
+  const groups = tags.filter((tag) => tag.startsWith('group:'))
+  if (artists.length === 1) return clauseOf(artists[0])
+  if (artists.length === 0 && groups.length === 1) return clauseOf(groups[0])
+  return null
+}
 
 /**
  * `a:"x$"` for one creator, `~a:"x$" ~g:"y$"` for several (EH rejects a lone `~`).
@@ -21,12 +55,7 @@ const CREATOR_SCOPES: Record<string, string> = { artist: 'a', group: 'g' }
  * the price of narrowing a common phrase to one result page.
  */
 export function creatorScope(tags: readonly string[]): string {
-  const clauses: string[] = []
-  for (const tag of tags) {
-    const colon = tag.indexOf(':')
-    const prefix = CREATOR_SCOPES[tag.slice(0, colon)]
-    if (prefix) clauses.push(`${prefix}:"${tag.slice(colon + 1).replaceAll('_', ' ')}$"`)
-  }
+  const clauses = tags.map(clauseOf).filter((clause): clause is string => clause !== null)
   if (clauses.length <= 1) return clauses.join('')
   return clauses.map((clause) => `~${clause}`).join(' ')
 }
@@ -44,16 +73,82 @@ export function editionTermsOf(coreSegment: string): string[] {
     .filter((part) => LETTER_RE.test(part))
 }
 
-/** Editions are searched by the unwrapped work text of each title field; Manga adds the container plan. */
-export function planSearch(source: SourceGallery): SearchPlan {
-  const editionTerms: string[] = []
-  for (const value of [source.title, source.titleJpn]) {
-    if (!value) continue
-    for (const segment of analyzeTitle(value).coreSegments) {
-      for (const term of editionTermsOf(segment)) {
-        if (!editionTerms.includes(term)) editionTerms.push(term)
-      }
+/**
+ * Work phrases of one title field, in written order, with whether its brackets
+ * balanced. They do not for 0.6% of titles, and `analyzeTitle` then hands back
+ * the whole raw string — circle name, language marker, translation group and
+ * all. A whole-phrase search survives that; a two-character slice taken from it
+ * searches for a fragment of the translation group's name.
+ */
+function fieldTerms(value: string): { terms: string[]; balanced: boolean } {
+  const parts = analyzeTitle(value)
+  const terms: string[] = []
+  for (const segment of parts.coreSegments) {
+    for (const term of editionTermsOf(segment)) {
+      if (!terms.includes(term)) terms.push(term)
     }
   }
-  return { editionTerms, scope: creatorScope(source.tags), ...planContainerSearch(source, (text) => LETTER_RE.test(text), editionTerms) }
+  return { terms, balanced: parts.balanced }
+}
+
+/**
+ * Editions are searched by the unwrapped work text of each title field; Manga
+ * adds the container plan.
+ *
+ * With one creator the scope already pins the search to that person's shelf, so
+ * the phrases are cut down to two short slices (`fragment.ts`) and the run costs
+ * two requests whatever the title looks like — against p50 2, p90 3, max 9 for
+ * the whole-phrase path. Several creators keep the whole phrases: an anthology
+ * has no single shelf to narrow to, and its chapters are found by the container
+ * plan's verbatim name instead.
+ *
+ * One slice comes from each field. `titleJpn` is the original title, the same
+ * string across every release, so it is where the left slice is cut; reading
+ * the primary phrase off the merged list instead would pick a translated title
+ * (`title` often carries one after a vertical bar, and a Chinese one is written
+ * in han too), and slices cut from that only ever find one translation group's
+ * uploads. The right slice comes from `title` because 8.4% of galleries leave
+ * `titleJpn` blank and the romanisation is the only handle on those. Corpus run
+ * over 1,121 sole-creator galleries: one slice per field loses something for
+ * 1.2% of galleries against 10.2% when both slices come from the Japanese.
+ *
+ * Positions still divide the title — a romanisation transliterates in order —
+ * so a chapter marker that survived filtering can only spoil one of the two.
+ */
+export function planSearch(source: SourceGallery): SearchPlan {
+  const roman = source.title ? fieldTerms(source.title) : { terms: [], balanced: true }
+  const japanese = source.titleJpn ? fieldTerms(source.titleJpn) : { terms: [], balanced: true }
+  const phrases: string[] = []
+  for (const term of [...roman.terms, ...japanese.terms]) {
+    if (!phrases.includes(term)) phrases.push(term)
+  }
+  const sole = soleCreatorScope(source.tags)
+  const slices = sole ? sliceTerms(japanese, roman) : []
+  // an unbalanced title leaves no phrase worth slicing; the whole-phrase path
+  // still has the raw string to work with
+  const editionTerms = slices.length > 0 ? slices : phrases
+  // the container plan compares against whole phrases: a slice would never
+  // match a segment, and every chapter term would be sent twice
+  return {
+    editionTerms,
+    scope: sole ?? creatorScope(source.tags),
+    fixedRange: sole !== null && slices.length > 0,
+    ...planContainerSearch(source, (text) => LETTER_RE.test(text), phrases),
+  }
+}
+
+interface FieldTerms {
+  terms: string[]
+  balanced: boolean
+}
+
+/** Left slice of the original title, right slice of the romanisation. */
+function sliceTerms(japanese: FieldTerms, roman: FieldTerms): string[] {
+  const fromJpn = japanese.balanced ? fragmentsOf(japanese.terms[0] ?? '') : []
+  const fromRoman = roman.balanced ? fragmentsOf(roman.terms[0] ?? '') : []
+  const left = fromJpn[0]
+  const right = fromRoman.at(-1)
+  if (left === undefined) return fromRoman
+  if (right === undefined) return fromJpn
+  return [...new Set([left, right])]
 }

@@ -17,6 +17,12 @@ const MESSAGES = {
   editionsTitle: { en: 'This book in other languages and releases', zh: '同一本的其他語言／版本', ja: '同じ本の他言語版・別版' },
   series: { en: 'Series', zh: '系列', ja: 'シリーズ' },
   seriesTitle: { en: 'Other books of the same series', zh: '同系列的其他集', ja: '同シリーズの他の巻・話' },
+  maybeSeries: { en: 'Maybe', zh: '疑似系列', ja: '類似' },
+  maybeSeriesTitle: {
+    en: 'Same creator and wording, relation unproven',
+    zh: '同作者、用詞相同，關係未經確認',
+    ja: '同じ作者・同じ語句だが関係は未確認',
+  },
   chapters: { en: 'Chapters', zh: '收錄作品', ja: '収録作品' },
   chaptersTitle: { en: 'Chapters cut from this magazine or tankoubon', zh: '從這本雜誌或單行本切出來的作品', ja: 'この掲載誌・単行本から切り出された作品' },
   requestsTitle: { en: 'URLs this script requested for this gallery', zh: '這個腳本為這本畫廊發出的請求', ja: 'このギャラリーのために送ったリクエスト' },

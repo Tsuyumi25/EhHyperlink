@@ -23,6 +23,8 @@ export interface JumpResult {
   editions: EditionGroup[]
   /** other books of the same series, grouped by language */
   series: EditionGroup[]
+  /** same creator and vocabulary, relation unproven; only the fixed-range path fills this */
+  maybeSeries: EditionGroup[]
   /** chapters cut from this gallery when it is a magazine or tankoubon, grouped by language */
   chapters: EditionGroup[]
   /** magazines / tankoubon this chapter was cut from */
@@ -57,7 +59,7 @@ export async function findEditions(
   // stale entries from an earlier build or an expired day; nothing waits on it
   void sweepCache().catch(() => {})
   if (hasAiGeneratedTag(source.tags)) {
-    return { plan, requests: [], metadataFromCache: 0, dataAt: Date.now(), editions: [], series: [], chapters: [], containers: [] }
+    return { plan, requests: [], metadataFromCache: 0, dataAt: Date.now(), editions: [], series: [], maybeSeries: [], chapters: [], containers: [] }
   }
 
   // One search at a time: `fetchSearch` holds the host's pace, and holding it
@@ -107,7 +109,7 @@ export async function findEditions(
 
   const chapters = plan.isContainerCandidate ? matchExtractedChapters(source, enriched) : []
   const chapterGids = new Set(chapters.map((hit) => hit.gid))
-  const { editions, series } = scoreEditions(source, enriched.filter((hit) => !chapterGids.has(hit.gid)))
+  const { editions, series, maybeSeries } = scoreEditions(source, enriched.filter((hit) => !chapterGids.has(hit.gid)), plan.fixedRange)
 
   // the oldest response in this result: what the reader is actually looking at
   const dataAt = Math.min(meta.oldestAt, ...searchPages.map((page) => page.at))
@@ -119,6 +121,7 @@ export async function findEditions(
     dataAt: Number.isFinite(dataAt) ? dataAt : Date.now(),
     editions: groupByLanguage(editions, priority),
     series: groupByLanguage(series, priority),
+    maybeSeries: groupByLanguage(maybeSeries, priority),
     chapters: groupByLanguage(chapters.map((hit) => toEdition(hit, 1)), priority),
     containers: matchContainers(plan.containerNames, enrichHits(containerHits, metadata)),
   }

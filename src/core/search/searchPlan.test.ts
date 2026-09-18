@@ -109,6 +109,18 @@ describe('work phrase', () => {
     expect(readWorkText('作品乙 后篇').phrase).toBe('作品乙')
   })
 
+  it('cuts at a counter standing alone between two tokens', () => {
+    expect(readWorkText('作品乙 四 副題甲の話').phrase).toBe('作品乙')
+    expect(readWorkText('Work Beta 4 Subtitle Gamma').phrase).toBe('Work Beta')
+    expect(readWorkText('作品乙 弐 副題甲').counter).toBe('弐')
+    // a counter at the tail is a group tail, not a cut point
+    expect(readWorkText('作品乙 四').phrase).toBe('作品乙')
+    // glued to a word it is neither: 14 stays inside the work text
+    expect(readWorkText('Work Beta14 Gamma').phrase).toBe('Work Beta14 Gamma')
+    // a cut that would leave one character is no cut
+    expect(readWorkText('A 4 Work Beta').phrase).toBe('Work Beta')
+  })
+
   it('stays a substring of its segment, so the source retrieves itself', () => {
     for (const segment of ['Work Beta Vol. 02 Gamma', '作品乙 第3話 副題甲', 'Work Beta Vol. 2 - Ch. 1-6', '作品乙。2', 'Work Beta 5']) {
       expect(segment).toContain(readWorkText(segment).phrase)

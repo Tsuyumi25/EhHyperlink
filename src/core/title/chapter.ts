@@ -102,6 +102,20 @@ const CUT_POINT = compile(
 )
 
 /**
+ * A counter standing alone between two other tokens. It has no label and no
+ * position to vouch for it, so the corpus has to: over 728 CJK and 3,155 Arabic
+ * cases, cutting there finds a same-creator relative 84.1% / 89.6% of the time
+ * against 62.9% / 49.7% for leaving the whole string as one phrase — the cut is
+ * the only way in for 21.2% / 39.9% of them. A wrong cut (`Seinen 14 Sai`)
+ * survives as a short phrase that the creator scope keeps narrow and the 0.5
+ * similarity threshold drops, which costs less than never searching at all.
+ */
+const MID_COUNTER = compile(
+  anyOf(counter, cjkCounter, romanCounter).after(whitespace).before(whitespace),
+  ['g', 'i'],
+)
+
+/**
  * Words too short to settle anything on their own — `上`, `中`, `下` also sit
  * inside `以上`, `集中`, `天下`. Only position tells them apart, so they are read
  * as the last whitespace token of a group. Corpus: 下 63%, 上 63%, 改 39% had a
@@ -183,15 +197,23 @@ function stripGroupTails(text: string, alreadyStripped = false): string {
   return stripped || text
 }
 
-/** First cut point whose CJK numeral, if any, is a real number. */
+/** EH rejects a phrase of one character, so a cut may not leave less than this. */
+const MIN_PHRASE_LENGTH = 2
+
+/** Earliest cut point that leaves a usable phrase; a CJK numeral must be a real number. */
 function firstCutPoint(text: string): { index: number; length: number } | null {
-  CUT_POINT.lastIndex = 0
-  for (let match = CUT_POINT.exec(text); match; match = CUT_POINT.exec(text)) {
-    const numeral = match.groups?.cjkNumeral
-    if (numeral !== undefined && parseCjkNumeral(numeral) === null) continue
-    return { index: match.index, length: match[0].length }
+  let best: { index: number; length: number } | null = null
+  for (const pattern of [CUT_POINT, MID_COUNTER]) {
+    pattern.lastIndex = 0
+    for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+      const numeral = match.groups?.cjkNumeral
+      if (numeral !== undefined && parseCjkNumeral(numeral) === null) continue
+      const found = { index: match.index, length: match[0].length }
+      if (best === null || found.index < best.index) best = found
+      break
+    }
   }
-  return null
+  return best
 }
 
 const HAS_LETTER = compile(letter)
@@ -269,8 +291,9 @@ export function readWorkText(text: string): WorkText {
   }
   const left = text.slice(0, marker.index).trim()
   const right = text.slice(marker.index + marker.length).trim()
+  const work = HAS_LETTER.test(left) && left.length >= MIN_PHRASE_LENGTH ? left : right
   return {
-    phrase: trimEdges(stripGroupTails(HAS_LETTER.test(left) ? left : right, true)),
+    phrase: trimEdges(stripGroupTails(work, true)),
     counter: counterIn(text.slice(marker.index, marker.index + marker.length)),
   }
 }

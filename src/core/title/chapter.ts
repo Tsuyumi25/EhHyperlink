@@ -174,15 +174,25 @@ const subjectPart = notUnicode('White_Space').times.between(1, 9)
   .and(charIn('編篇'))
 
 /**
+ * An ellipsis, the one punctuation a bare counter may hide behind. The
+ * separators that carry counters of their own stay out — `-` `.` `/` `:` `+`
+ * write issue numbers (`2002-11`), version numbers (`1.2.3`) and fractions
+ * (`1/2`) — and two periods is what tells an ellipsis from those: `...2` matches,
+ * `1.2` does not.
+ */
+const ellipsis = anyOf(exactly('..'), charIn('…'))
+
+/**
  * A bare counter or short word counts only as the last whitespace token of its
- * group: `作品乙 5`, `作品乙 弐`, or the whole group (`作品乙・上`). Japanese and
- * Chinese titles glue an Arabic number to the last character (`ほん5`, `本子5`),
- * so after a CJK letter that form needs no space; kanji numerals and short words
- * still do (`唯一`, `天下` are words).
+ * group: `作品乙 5`, `作品乙 弐`, or the whole group (`作品乙・上`). An ellipsis
+ * counts as that boundary too, so the number behind one is read (`作品乙...2`).
+ * Japanese and Chinese titles glue an Arabic number to the last character
+ * (`ほん5`, `本子5`), so after a CJK letter that form needs no space; kanji
+ * numerals and short words still do (`唯一`, `天下` are words).
  */
 const TRAILING_NUMBER = compile(
   anyOf(
-    anyOf(counter, cjkCounter, romanCounter, seriesWord, positionOnlyWord, subjectPart).after(anyOf(whitespace, start)),
+    anyOf(counter, cjkCounter, romanCounter, seriesWord, positionOnlyWord, subjectPart).after(anyOf(whitespace, start, ellipsis)),
     counter.after(cjkLetter),
   ).and(end),
   ['i'],
@@ -238,8 +248,20 @@ function stripGroupTails(text: string, alreadyStripped = false): { text: string;
   let removed = ''
   for (let index = 0; index < parts.length; index += 2) {
     const group = parts[index].trim()
-    const shorter = group.replace(TRAILING_NUMBER, unlessNotNumeral('')).trim()
-    if (shorter !== group) removed = group.slice(shorter.length).trim()
+    // Strip until the group stops shrinking. One pass leaves the punctuation the
+    // counter hid behind, and a counter behind that (`Version 1.2.3` would read
+    // `Version 1.`); each round takes the tail marks off so the next one sees the
+    // number underneath.
+    let shorter = group
+    let found = false
+    for (;;) {
+      const stripped = shorter.replace(TRAILING_NUMBER, unlessNotNumeral(''))
+      if (stripped !== shorter) found = true
+      const next = trimTail(stripped).trim()
+      if (next === shorter) break
+      shorter = next
+    }
+    if (found) removed = group.slice(shorter.length).trim()
     if (!shorter) continue
     if (kept.length > 0) kept.push(parts[index - 1])
     kept.push(shorter)
@@ -307,6 +329,10 @@ const EDGE_NOISE = compile(
   ),
   ['g'],
 )
+
+/** The same marks at the tail only, so a strip loop keeps its result a prefix of the group. */
+const TRAILING_NOISE = compile(oneOrMore(edgeMark).and(end))
+const trimTail = (text: string) => text.replace(TRAILING_NOISE, '')
 
 const trimEdges = (text: string) => text.replace(EDGE_NOISE, '')
 

@@ -75,12 +75,23 @@ describe('chapter markers', () => {
   it('reads a space-isolated part name ending in 編 / 篇 as the counter', () => {
     expect(readWorkText('作品乙の冒険 アイウエ編')).toEqual({ phrase: '作品乙の冒険', counter: 'アイウエ編' })
     expect(readWorkText('作品乙 甲編')).toEqual({ phrase: '作品乙', counter: '甲編' })
-    expect(readWorkText('作品乙2 保健甲編').phrase).toBe('作品乙2')
+    // two markers stacked: the part name comes off, and the number glued to 乙 behind it
+    expect(readWorkText('作品乙2 保健甲編').phrase).toBe('作品乙')
     // the rightmost group decides, and the counter is what came off it
     expect(readWorkText('作品乙 ～副題甲～ 丙編')).toEqual({ phrase: '作品乙～副題甲', counter: '丙編' })
     // the shape is what identifies it, so it needs the space and a token that ends
     expect(readWorkText('作品乙アイウエ編').phrase).toBe('作品乙アイウエ編')
     expect(readWorkText('作品乙 とてもとてもとても長い題名の編').phrase).toBe('作品乙 とてもとてもとても長い題名の編')
+  })
+
+  it('reads a bare counter hiding behind an ellipsis, and strips until the group settles', () => {
+    expect(readWorkText('作品乙に協力したら...2')).toEqual({ phrase: '作品乙に協力したら', counter: '2' })
+    expect(readWorkText('作品乙…2').phrase).toBe('作品乙')
+    expect(readWorkText('作品乙..2').phrase).toBe('作品乙')
+    // the separators that write numbers of their own keep them
+    expect(readWorkText('COMIC Alphabeta Monthly 2002-11').phrase).toBe('COMIC Alphabeta Monthly 2002-11')
+    expect(readWorkText('Version 1.2.3').phrase).toBe('Version 1.2.3')
+    expect(readWorkText('作品乙 3／4').phrase).toBe('作品乙 3／4')
   })
 
   it('reads the romanized series words the other title field writes in kanji', () => {

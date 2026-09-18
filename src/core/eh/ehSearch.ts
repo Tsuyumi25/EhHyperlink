@@ -1,6 +1,8 @@
+import { cacheGet, cacheSet } from './cache'
 import { readCategory } from './category'
 import { galleryRef, pageCount } from './ehUrl'
 import type { SearchRequest } from './requestLog'
+import { searchThrottle } from './throttle'
 
 export interface SearchHit {
   gid: number
@@ -25,10 +27,12 @@ export interface SearchHit {
   torrentHref: string | null
 }
 
-/** One search page: the request that fetched it, and the rows it held. */
+/** One search page: the request that fetched it, the rows it held, and when they were read. */
 export interface SearchResponse {
   request: SearchRequest
   hits: SearchHit[]
+  /** unix ms of the response, from the cache entry when it came from there */
+  at: number
 }
 
 /**
@@ -101,9 +105,21 @@ export function parseSearchResults(html: string): SearchHit[] {
   return hits
 }
 
-export async function fetchSearch(origin: string, term: string, scope = ''): Promise<SearchResponse> {
+/**
+ * One search page, from the cache when it is there. The pace is held only for
+ * requests that actually leave, so a cached page costs no time at all.
+ *
+ * `force` skips the read and overwrites the entry — the refetch button asks for
+ * that, and nothing else should.
+ */
+export async function fetchSearch(origin: string, term: string, scope = '', force = false): Promise<SearchResponse> {
   const url = searchUrl(origin, term, scope)
+  const cached = force ? null : await cacheGet<SearchHit[]>(url)
+  if (cached) return { request: { kind: 'search', url, term, cached: true }, hits: cached.data, at: cached.at }
+  await searchThrottle.next()
   const response = await fetch(url, { credentials: 'same-origin' })
   if (!response.ok) throw new Error(`search failed: HTTP ${response.status}`)
-  return { request: { kind: 'search', url, term }, hits: parseSearchResults(await response.text()) }
+  const hits = parseSearchResults(await response.text())
+  await cacheSet(url, hits)
+  return { request: { kind: 'search', url, term }, hits, at: Date.now() }
 }

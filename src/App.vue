@@ -2,33 +2,51 @@
 import { computed, onMounted, ref } from 'vue'
 import GroupList from '@/components/GroupList.vue'
 import SettingsPopup from '@/components/SettingsPopup.vue'
-import { Activity, CircleSlash2, Settings } from '@lucide/vue'
+import { Activity, CircleSlash2, RefreshCw, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY } from '@/i18n'
-import { readSourceGallery } from '@/core/eh/galleryPage'
-import { findEditions, type EditionGroup, type JumpResult, type MetadataRequest, type SearchRequest } from '@/core/pipeline'
+import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
+import { findEditions, type EditionGroup, type JumpResult, type MetadataRequest, type SearchProgress, type SearchRequest } from '@/core/pipeline'
 import { displayTitle, subtitle } from '@/settings'
 
 const state = ref<'searching' | 'done' | 'noTitle' | 'failed'>('searching')
 const result = ref<JumpResult | null>(null)
+/** How far the search has got, so the status line counts rather than just spins. */
+const progress = ref<SearchProgress | null>(null)
 /** Tab id whose panel is shown: a hovered list tab previews, a clicked tab stays; one panel at a time. */
 const pinned = ref<string | null>(null)
 const hovered = ref<string | null>(null)
 const open = computed(() => hovered.value ?? pinned.value)
 
-onMounted(async () => {
-  const source = readSourceGallery()
-  if (!source) {
-    state.value = 'noTitle'
-    return
-  }
+/** Kept so the refetch button can run the same search again. */
+const source = ref<SourceGallery | null>(null)
+
+async function run(force: boolean): Promise<void> {
+  const gallery = source.value
+  if (!gallery) return
+  state.value = 'searching'
+  progress.value = null
   try {
-    const found = await findEditions(source, location.origin, LANGUAGE_PRIORITY[locale])
+    const found = await findEditions(gallery, location.origin, LANGUAGE_PRIORITY[locale], {
+      force,
+      onProgress: (next) => (progress.value = next),
+    })
     result.value = found
     state.value = found.plan.editionTerms.length === 0 && found.plan.containerTerms.length === 0 ? 'noTitle' : 'done'
   } catch (error) {
     console.error('[EhHyperlink]', error)
     state.value = 'failed'
+  } finally {
+    progress.value = null
   }
+}
+
+onMounted(async () => {
+  source.value = readSourceGallery()
+  if (!source.value) {
+    state.value = 'noTitle'
+    return
+  }
+  await run(false)
 })
 
 interface Badge {
@@ -55,14 +73,36 @@ const badges = computed<Badge[]>(() => {
 const requests = computed(() => result.value?.requests ?? [])
 const searchRequests = computed(() => requests.value.filter((request): request is SearchRequest => request.kind === 'search'))
 const metadataRequests = computed(() => requests.value.filter((request): request is MetadataRequest => request.kind === 'metadata'))
+/** Galleries the cache answered for; the API never heard of them this run. */
+const metadataFromCache = computed(() => result.value?.metadataFromCache ?? 0)
+/**
+ * Requests that left the browser. A cached search is listed in the panel but
+ * counts as nothing here, which is what the icon and the empty-state line read.
+ */
+const sentCount = computed(() => requests.value.filter((request) => !(request.kind === 'search' && request.cached)).length)
 
 const hasResults = computed(() => badges.value.length > 0 || (result.value?.containers.length ?? 0) > 0)
 
 const status = computed(() => {
-  if (state.value === 'searching') return t('searching')
+  if (state.value === 'searching') {
+    const seen = progress.value
+    return seen && seen.total > 0 ? `${t('searching')} ${seen.done}/${seen.total}` : t('searching')
+  }
   if (state.value === 'noTitle') return t('noTitle')
   if (state.value === 'failed') return t('failed')
   return hasResults.value ? null : t('notFound')
+})
+
+/** How old the oldest response in this result is, in the reader's locale. */
+const dataAge = computed(() => {
+  const at = result.value?.dataAt
+  if (at === undefined) return ''
+  return new Date(at).toLocaleString(locale === 'zh' ? 'zh-TW' : locale === 'ja' ? 'ja-JP' : 'en-GB', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 })
 
 function toggle(id: string): void {
@@ -74,11 +114,19 @@ function toggle(id: string): void {
   <div class="ehl-box" translate="no">
     <div class="ehl-tabs">
       <div v-if="result" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'requests' }" @mouseenter="hovered = 'requests'" @mouseleave="hovered = null">
-        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'requests', 'ehl-tab--pinned': pinned === 'requests' }" :title="requests.length === 0 ? t('noRequests') : t('requestsTitle')" @click="toggle('requests')">
+        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'requests', 'ehl-tab--pinned': pinned === 'requests' }" :title="t('requestsTitle')" @click="toggle('requests')">
           <CircleSlash2 v-if="requests.length === 0" :size="14" aria-hidden="true" />
           <Activity v-else :size="14" aria-hidden="true" />
         </button>
         <div class="ehl-list">
+          <!-- the age of what is on screen, and the one control that discards it -->
+          <h4 class="ehl-head ehl-asof">
+            {{ t('dataAsOf') }} {{ dataAge }}
+            <button type="button" class="ehl-refetch" :disabled="state === 'searching'" :title="t('refetchTitle')" @click="run(true)">
+              <RefreshCw :size="11" aria-hidden="true" />
+              {{ t('refetch') }}
+            </button>
+          </h4>
           <section v-if="searchRequests.length > 0" class="ehl-section">
             <h4 class="ehl-head">{{ t('searchRequests') }}<span class="ehl-count">{{ searchRequests.length }}</span></h4>
             <ul>
@@ -87,6 +135,7 @@ function toggle(id: string): void {
                   "{{ request.term }}"
                   <span class="ehl-subtitle">{{ request.url }}</span>
                 </a>
+                <span v-if="request.cached" class="ehl-facts"><span class="ehl-meta">{{ t('fromCache') }}</span></span>
               </li>
             </ul>
           </section>
@@ -101,7 +150,9 @@ function toggle(id: string): void {
               </li>
             </ul>
           </section>
+          <p v-if="metadataFromCache > 0" class="ehl-head">{{ metadataFromCache }} {{ t('galleriesUnit') }} · {{ t('fromCache') }}</p>
           <p v-if="requests.length === 0" class="ehl-head">{{ t('noRequests') }}</p>
+          <p v-else-if="sentCount === 0" class="ehl-head">{{ t('nothingSent') }}</p>
         </div>
       </div>
       <span v-if="status" class="ehl-status">{{ status }}</span>
@@ -253,6 +304,38 @@ function toggle(id: string): void {
 }
 .ehl-unit--open .ehl-list {
   display: block;
+}
+/* The as-of row holds the age of what is on screen and the one control that
+   throws it away, so they read as one statement. */
+.ehl-asof {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--ehl-border, currentColor);
+}
+.ehl-refetch {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  color: inherit;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.ehl-refetch:hover:not(:disabled) {
+  opacity: 1;
+}
+.ehl-refetch:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 .ehl-section + .ehl-section {
   margin-top: 6px;

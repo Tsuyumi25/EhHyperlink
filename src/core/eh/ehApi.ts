@@ -1,5 +1,7 @@
+import { cacheGet, cacheSet } from './cache'
 import type { GalleryRef } from './ehUrl'
 import type { MetadataRequest } from './requestLog'
+import { metadataThrottle } from './throttle'
 
 /**
  * E-Hentai gallery metadata API (https://ehwiki.org/wiki/API).
@@ -10,8 +12,6 @@ import type { MetadataRequest } from './requestLog'
 
 export const API_URL = 'https://api.e-hentai.org/api.php'
 export const GALLERIES_PER_REQUEST = 25
-const REQUESTS_BEFORE_PAUSE = 4
-const PAUSE_MS = 5000
 
 export interface GalleryMetadata {
   gid: number
@@ -28,10 +28,14 @@ export interface GalleryMetadata {
   tags: string[]
 }
 
-/** What the API answered, keyed by gid, and the POSTs it took to ask. */
+/** What the API answered, keyed by gid, the POSTs it took, and how old the oldest answer is. */
 export interface MetadataResponse {
   metadata: Map<number, GalleryMetadata>
   requests: MetadataRequest[]
+  /** galleries answered from the cache; no request left for these */
+  fromCache: number
+  /** unix ms of the oldest answer in here */
+  oldestAt: number
 }
 
 interface ApiEntry {
@@ -114,30 +118,40 @@ async function requestChunk(refs: readonly GalleryRef[]): Promise<GalleryMetadat
   return parseMetadataResponse(await response.json())
 }
 
-function pause(ms: number): Promise<void> {
-  const { promise, resolve } = Promise.withResolvers<void>()
-  setTimeout(resolve, ms)
-  return promise
-}
-
 /**
  * Metadata for every ref the API knows, plus one entry per POST that left the
  * browser. A failed chunk drops its galleries and keeps its request: the host
  * was asked either way.
+ *
+ * The cache is per gallery, so only the refs nobody has asked about are batched.
+ * Two books by one creator return overlapping search results, and the second one
+ * asks the API about almost nothing.
  */
-export async function fetchGalleryMetadata(refs: readonly GalleryRef[]): Promise<MetadataResponse> {
+export async function fetchGalleryMetadata(refs: readonly GalleryRef[], force = false): Promise<MetadataResponse> {
   const metadata = new Map<number, GalleryMetadata>()
   const requests: MetadataRequest[] = []
-  for (let index = 0; index < refs.length; index += GALLERIES_PER_REQUEST) {
-    const chunkNumber = index / GALLERIES_PER_REQUEST
-    if (chunkNumber > 0 && chunkNumber % REQUESTS_BEFORE_PAUSE === 0) await pause(PAUSE_MS)
-    const chunk = refs.slice(index, index + GALLERIES_PER_REQUEST)
+  const missing: GalleryRef[] = []
+  let oldest = Number.POSITIVE_INFINITY
+  for (const ref of refs) {
+    const cached = force ? null : await cacheGet<GalleryMetadata>(`gid:${ref.gid}`)
+    if (cached) {
+      metadata.set(ref.gid, cached.data)
+      oldest = Math.min(oldest, cached.at)
+    } else missing.push(ref)
+  }
+  for (let index = 0; index < missing.length; index += GALLERIES_PER_REQUEST) {
+    const chunk = missing.slice(index, index + GALLERIES_PER_REQUEST)
+    await metadataThrottle.next()
     requests.push({ kind: 'metadata', url: API_URL, galleries: chunk.length })
     try {
-      for (const entry of await requestChunk(chunk)) metadata.set(entry.gid, entry)
+      for (const entry of await requestChunk(chunk)) {
+        metadata.set(entry.gid, entry)
+        await cacheSet(`gid:${entry.gid}`, entry)
+      }
+      oldest = Math.min(oldest, Date.now())
     } catch (error) {
       console.warn('[EhHyperlink] metadata chunk skipped', error)
     }
   }
-  return { metadata, requests }
+  return { metadata, requests, fromCache: refs.length - missing.length, oldestAt: Number.isFinite(oldest) ? oldest : Date.now() }
 }

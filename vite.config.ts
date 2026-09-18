@@ -4,10 +4,30 @@ import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import monkey from 'vite-plugin-monkey'
 import pkg from './package.json'
+import { createHash } from 'node:crypto'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+
+/** Hash of every source file, so the cache key changes whenever a rule does. */
+function buildHash(): string {
+  const hash = createHash('sha256')
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir).sort()) {
+      const path = `${dir}/${entry}`
+      if (statSync(path).isDirectory()) walk(path)
+      else if (/\.(ts|vue|json)$/.test(entry)) hash.update(readFileSync(path))
+    }
+  }
+  walk('src')
+  walk('data')
+  return hash.digest('hex').slice(0, 12)
+}
 
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    // Any code change invalidates every cached response: a rule change has to
+    // show up on the next page load rather than after the cache expires.
+    __BUILD_HASH__: JSON.stringify(buildHash()),
   },
   plugins: [
     vue(),
@@ -48,5 +68,6 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
+    setupFiles: ['src/test-setup.ts'],
   },
 })

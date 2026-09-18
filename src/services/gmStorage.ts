@@ -18,3 +18,16 @@ export async function storageSet(key: string, value: string): Promise<void> {
     // quota exceeded: settings are small, next save will retry
   }
 }
+
+export async function storageKeys(): Promise<string[]> {
+  if (hasGM && typeof GM.listValues === 'function') return await GM.listValues()
+  return Object.keys(localStorage)
+}
+
+export async function storageRemove(key: string): Promise<void> {
+  if (hasGM && typeof GM.deleteValue === 'function') {
+    await GM.deleteValue(key)
+    return
+  }
+  localStorage.removeItem(key)
+}

@@ -1,11 +1,12 @@
 import { matchContainers, matchExtractedChapters } from './search/container'
 import { dedupe, type EditionGroup, enrichHits, groupByLanguage, scoreEditions, toEdition } from './rank/edition'
 import { fetchGalleryMetadata } from './eh/ehApi'
-import { fetchSearch, type SearchHit } from './eh/ehSearch'
+import { fetchSearch, type SearchHit, type SearchResponse } from './eh/ehSearch'
 import type { SentRequest } from './eh/requestLog'
 import type { SourceGallery } from './eh/galleryPage'
 import { planSearch, type SearchPlan } from './search/searchPlan'
 import { hasAiGeneratedTag } from './rank/titleSimilarity'
+import { sweepCache } from './eh/cache'
 
 export type { Book, Edition, EditionFlag, EditionGroup } from './rank/edition'
 export type { MetadataRequest, SearchRequest, SentRequest } from './eh/requestLog'
@@ -14,6 +15,10 @@ export interface JumpResult {
   plan: SearchPlan
   /** every request this run sent, in send order; empty when the planner sent none */
   requests: SentRequest[]
+  /** galleries the metadata cache answered for; no request left for these */
+  metadataFromCache: number
+  /** unix ms of the oldest response in this result: how old what the reader sees is */
+  dataAt: number
   /** the same book in other languages / releases, grouped by language */
   editions: EditionGroup[]
   /** other books of the same series, grouped by language */
@@ -24,20 +29,53 @@ export interface JumpResult {
   containers: SearchHit[]
 }
 
+/** How far the search stage has got, reported after each page. */
+export interface SearchProgress {
+  done: number
+  /** pages planned so far; it grows when the chapter stage turns out to be needed */
+  total: number
+}
+
+export interface FindOptions {
+  /** ignore cached responses and overwrite them; the refetch button asks for this */
+  force?: boolean
+  onProgress?: (progress: SearchProgress) => void
+}
+
 /**
  * plan → search → enrich → classify → group.
  * Every step is a call into the module that owns that rule; nothing here decides
  * what a title means.
  */
-export async function findEditions(source: SourceGallery, origin: string, priority: readonly string[]): Promise<JumpResult> {
+export async function findEditions(
+  source: SourceGallery,
+  origin: string,
+  priority: readonly string[],
+  { force = false, onProgress }: FindOptions = {},
+): Promise<JumpResult> {
   const plan = planSearch(source)
-  if (hasAiGeneratedTag(source.tags)) return { plan, requests: [], editions: [], series: [], chapters: [], containers: [] }
+  // stale entries from an earlier build or an expired day; nothing waits on it
+  void sweepCache().catch(() => {})
+  if (hasAiGeneratedTag(source.tags)) {
+    return { plan, requests: [], metadataFromCache: 0, dataAt: Date.now(), editions: [], series: [], chapters: [], containers: [] }
+  }
 
-  const search = (terms: readonly string[]) => Promise.all(terms.map((term) => fetchSearch(origin, term, plan.scope)))
-  const [editionPages, containerPages] = await Promise.all([
-    search(plan.editionTerms),
-    search(plan.containerTerms),
-  ])
+  // One search at a time: `fetchSearch` holds the host's pace, and holding it
+  // from inside a `Promise.all` would send the whole batch at once.
+  let done = 0
+  let total = plan.editionTerms.length + plan.containerTerms.length
+  const search = async (terms: readonly string[]): Promise<SearchResponse[]> => {
+    const pages: SearchResponse[] = []
+    for (const term of terms) {
+      pages.push(await fetchSearch(origin, term, plan.scope, force))
+      done += 1
+      onProgress?.({ done, total })
+    }
+    return pages
+  }
+  onProgress?.({ done, total })
+  const editionPages = await search(plan.editionTerms)
+  const containerPages = await search(plan.containerTerms)
 
   /**
    * Chapter phrases are an edition phrase plus a counter, so their result set is
@@ -52,11 +90,17 @@ export async function findEditions(source: SourceGallery, origin: string, priori
    * bracket blocks left non-contiguous (7.1%) — falls back to searching.
    */
   const sourceOnEveryFirstPage = editionPages.length > 0 && editionPages.every((page) => page.hits.some((hit) => hit.gid === source.gid))
-  const chapterPages = sourceOnEveryFirstPage ? [] : await search(plan.chapterTerms)
+  let chapterPages: SearchResponse[] = []
+  if (!sourceOnEveryFirstPage) {
+    total += plan.chapterTerms.length
+    onProgress?.({ done, total })
+    chapterPages = await search(plan.chapterTerms)
+  }
 
   const candidates = dedupe([...editionPages, ...chapterPages].flatMap((page) => page.hits), source.gid)
   const containerHits = dedupe(containerPages.flatMap((page) => page.hits), source.gid)
-  const { metadata, requests: metadataRequests } = await fetchGalleryMetadata([...candidates, ...containerHits].map(({ gid, token }) => ({ gid, token })))
+  const meta = await fetchGalleryMetadata([...candidates, ...containerHits].map(({ gid, token }) => ({ gid, token })), force)
+  const { metadata, requests: metadataRequests, fromCache: metadataFromCache } = meta
   const searchPages = [...editionPages, ...containerPages, ...chapterPages]
   const requests: SentRequest[] = [...searchPages.map((page) => page.request), ...metadataRequests]
   const enriched = enrichHits(candidates, metadata)
@@ -65,9 +109,14 @@ export async function findEditions(source: SourceGallery, origin: string, priori
   const chapterGids = new Set(chapters.map((hit) => hit.gid))
   const { editions, series } = scoreEditions(source, enriched.filter((hit) => !chapterGids.has(hit.gid)))
 
+  // the oldest response in this result: what the reader is actually looking at
+  const dataAt = Math.min(meta.oldestAt, ...searchPages.map((page) => page.at))
+
   return {
     plan,
     requests,
+    metadataFromCache,
+    dataAt: Number.isFinite(dataAt) ? dataAt : Date.now(),
     editions: groupByLanguage(editions, priority),
     series: groupByLanguage(series, priority),
     chapters: groupByLanguage(chapters.map((hit) => toEdition(hit, 1)), priority),

@@ -269,6 +269,28 @@ describe('search planning', () => {
     })
     expect(plan.editionTerms).toEqual(['Work Gamma', '作品丙'])
   })
+
+  it('searches the whole issue name when the gallery is tagged an anthology', () => {
+    // A chapter names the issue verbatim, `(Work Beta -Gamma Delta- Vol. 24)`.
+    // Cutting the counter would retrieve every issue of the magazine and push
+    // this one's chapters off the first page; splicing the wrapper out used to
+    // produce `Work Beta   Vol. 24`, which matches nothing at all.
+    const anthology = {
+      ...shared,
+      category: 'Manga',
+      title: '[Anthology] Work Beta -Gamma Delta- Vol. 24 [Digital]',
+      titleJpn: '',
+      tags: [...shared.tags, 'other:anthology'],
+    }
+    const plan = planSearch(anthology)
+    expect(plan.editionTerms).toEqual(['Work Beta -Gamma Delta- Vol. 24'])
+    // the container plan skips what the edition terms already send
+    expect(plan.chapterTerms).toEqual([])
+    expect(plan.fixedRange).toBe(false)
+
+    // without the tag the counter goes, so the phrase reaches the other issues
+    expect(planSearch({ ...anthology, tags: shared.tags }).editionTerms).toEqual(['Work Beta -Gamma Delta'])
+  })
 })
 
 describe('creator scope', () => {

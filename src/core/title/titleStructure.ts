@@ -107,6 +107,14 @@ export const TITLE_BAR = ' | '
  * because in 1.4% of cases the wrapper is the whole title (`~作品乙~`,
  * `-Work Beta-`, `★作品丙★`) and dropping it would leave nothing.
  *
+ * A block with text on both sides is collected but not removed. Removing it
+ * would splice the two halves into a string the title never held, and
+ * `title:"…"` matches a phrase exactly — corpus: middle blocks are 14.0% of
+ * strippable ones, and the splice is absent from the original title for 100% of
+ * container terms and 47% of edition phrases (`刊名 ～副標～ Vol. 24` becomes
+ * `刊名 Vol. 24`, which no gallery is called). Left whole, the phrase keeps the
+ * wrapper and the counter rules still cut the trailing part off it.
+ *
  * Only a block before the bar is collected. The translated half wraps the
  * translation of the same subtitle (`~副題甲~` / `~Subtitle Alpha~`), so it
  * varies release to release; 2.7% of barred titles wrap on both sides.
@@ -123,11 +131,13 @@ function stripMirroredBlocks(text: string, wrapped: string[]): string {
     if (afterLast && ALNUM_RE.test(afterLast)) continue
     const inner = out.slice(first + 1, last)
     if (!ALNUM_RE.test(inner) || inner !== inner.trim()) continue
-    const outside = (out.slice(0, first) + ' ' + out.slice(last + 1)).trim()
-    if (!ALNUM_RE.test(outside)) continue
+    const before = out.slice(0, first).trim()
+    const after = out.slice(last + 1).trim()
+    if (!ALNUM_RE.test(before + after)) continue
     const bar = out.indexOf(TITLE_BAR)
     if (bar === -1 || first < bar) wrapped.push(inner)
-    out = outside
+    if (before && after) continue
+    out = before || after
   }
   return out
 }

@@ -63,13 +63,24 @@ export function creatorScope(tags: readonly string[]): string {
 const LETTER_RE = compile(letter)
 
 /**
- * Search phrases for one run of top-level text: each side of a vertical bar, cut
- * at its chapter marker, letters required.
+ * `other:anthology` marks a gallery whose worth is its table of contents, and a
+ * chapter cut from it names the issue verbatim — `(Work Beta -Gamma- Vol. 24)`,
+ * counter and wrapper intact. Cutting the counter off the phrase would retrieve
+ * every issue ever published and push this issue's own chapters off the first
+ * page. Census: 6,840 galleries carry the tag, 79.3% of them Manga, 73.1% with
+ * three or more artists and 21.8% with none.
  */
-export function editionTermsOf(coreSegment: string): string[] {
+const ANTHOLOGY_TAG = 'other:anthology'
+
+/**
+ * Search phrases for one run of top-level text: each side of a vertical bar,
+ * cut at its chapter marker, letters required. An anthology keeps the marker —
+ * see `ANTHOLOGY_TAG`.
+ */
+export function editionTermsOf(coreSegment: string, keepCounter = false): string[] {
   return coreSegment
     .split(TITLE_BAR)
-    .map((part) => readWorkText(part).phrase)
+    .map((part) => (keepCounter ? part.trim() : readWorkText(part).phrase))
     .filter((part) => LETTER_RE.test(part))
 }
 
@@ -80,11 +91,11 @@ export function editionTermsOf(coreSegment: string): string[] {
  * all. A whole-phrase search survives that; a two-character slice taken from it
  * searches for a fragment of the translation group's name.
  */
-function fieldTerms(value: string): { terms: string[]; balanced: boolean } {
+function fieldTerms(value: string, keepCounter: boolean): { terms: string[]; balanced: boolean } {
   const parts = analyzeTitle(value)
   const terms: string[] = []
   for (const segment of parts.coreSegments) {
-    for (const term of editionTermsOf(segment)) {
+    for (const term of editionTermsOf(segment, keepCounter)) {
       if (!terms.includes(term)) terms.push(term)
     }
   }
@@ -98,9 +109,9 @@ function fieldTerms(value: string): { terms: string[]; balanced: boolean } {
  * With one creator the scope already pins the search to that person's shelf, so
  * the phrases are cut down to two short slices (`fragment.ts`) and the run costs
  * two requests whatever the title looks like — against p50 2, p90 3, max 9 for
- * the whole-phrase path. Several creators keep the whole phrases: an anthology
- * has no single shelf to narrow to, and its chapters are found by the container
- * plan's verbatim name instead.
+ * the whole-phrase path. Several creators keep the whole phrases, and so does an
+ * anthology whatever its creator count: its phrase has to name one issue
+ * exactly, so there is nothing to narrow and nothing to slice.
  *
  * One slice comes from each field. `titleJpn` is the original title, the same
  * string across every release, so it is where the left slice is cut; reading
@@ -116,13 +127,16 @@ function fieldTerms(value: string): { terms: string[]; balanced: boolean } {
  * so a chapter marker that survived filtering can only spoil one of the two.
  */
 export function planSearch(source: SourceGallery): SearchPlan {
-  const roman = source.title ? fieldTerms(source.title) : { terms: [], balanced: true }
-  const japanese = source.titleJpn ? fieldTerms(source.titleJpn) : { terms: [], balanced: true }
+  const anthology = source.tags.includes(ANTHOLOGY_TAG)
+  const roman = source.title ? fieldTerms(source.title, anthology) : { terms: [], balanced: true }
+  const japanese = source.titleJpn ? fieldTerms(source.titleJpn, anthology) : { terms: [], balanced: true }
   const phrases: string[] = []
   for (const term of [...roman.terms, ...japanese.terms]) {
     if (!phrases.includes(term)) phrases.push(term)
   }
-  const sole = soleCreatorScope(source.tags)
+  // an anthology's phrase already names one issue; slicing it would retrieve
+  // the whole run of the magazine
+  const sole = anthology ? null : soleCreatorScope(source.tags)
   const slices = sole ? sliceTerms(japanese, roman) : []
   // an unbalanced title leaves no phrase worth slicing; the whole-phrase path
   // still has the raw string to work with

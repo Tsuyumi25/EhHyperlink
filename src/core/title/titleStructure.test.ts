@@ -67,6 +67,15 @@ describe('structural title cleaning', () => {
     expect(analyzeTitle('[Circle Alpha] Work Beta ~作品乙~').core).toBe('work beta 作品乙')
   })
 
+  it('keeps a wrapper with text on both sides, since dropping it would invent a title', () => {
+    // `刊名 ～副標～ 2` spliced to `刊名 2` is a string no gallery is called, and
+    // a phrase search for it matches nothing
+    expect(analyzeTitle('[Circle Alpha] Work Beta ~作品乙~ 2').coreSegments).toEqual(['Work Beta ~作品乙~ 2'])
+    expect(analyzeTitle('[Circle Alpha] Work Beta -Gamma- Vol. 24').coreSegments).toEqual(['Work Beta -Gamma- Vol. 24'])
+    // still collected: grouping reads the wrapper even when search keeps it
+    expect(analyzeTitle('[Circle Alpha] Work Beta ~作品乙~ 2').wrapped).toEqual(['作品乙'])
+  })
+
   it('keeps a wrapper that is the whole work text', () => {
     expect(analyzeTitle('[Circle Alpha] ~作品乙~').coreSegments).toEqual(['~作品乙~'])
     expect(analyzeTitle('[Circle Alpha] -Work Beta-').coreSegments).toEqual(['-Work Beta-'])

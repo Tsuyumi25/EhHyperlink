@@ -2,7 +2,7 @@ import { readWorkText } from '../title/chapter'
 import { type ContainerPlan, planContainerSearch } from './container'
 import type { SourceGallery } from '../eh/galleryPage'
 import { compile, letter } from '../title/pattern'
-import { analyzeTitle } from '../title/titleStructure'
+import { analyzeTitle, TITLE_BAR } from '../title/titleStructure'
 
 export interface SearchPlan extends ContainerPlan {
   /** quoted-phrase terms that retrieve other editions and chapters of the same work */
@@ -32,8 +32,6 @@ export function creatorScope(tags: readonly string[]): string {
 }
 
 const LETTER_RE = compile(letter)
-/** ehwiki: a translated title follows the original after a spaced vertical bar. */
-export const TITLE_BAR = ' | '
 
 /**
  * Search phrases for one run of top-level text: each side of a vertical bar, cut

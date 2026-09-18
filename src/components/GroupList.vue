@@ -13,13 +13,12 @@ function percent(score: number): string {
 const BOOK_COLOURS = 4
 
 /**
- * A frame says "these rows are one book", which only means something when another
- * book stands beside it. One book holding every row is either a list that really
- * is one book, or a grouping that failed to split — and in both cases a frame
- * around everything says nothing, so it is left off.
+ * A frame says "these rows are one book". One book holding every row is a
+ * legitimate result — a single work with several releases found — so the frame
+ * is drawn whenever a book has more than one release.
  */
-function framed(group: EditionGroup, book: Book): boolean {
-  return group.books.length > 1 && book.releases.length > 1
+function framed(book: Book): boolean {
+  return book.releases.length > 1
 }
 </script>
 
@@ -35,7 +34,7 @@ function framed(group: EditionGroup, book: Book): boolean {
         <li
           v-for="(book, index) in group.books"
           :key="book.releases[0].hit.gid"
-          :class="framed(group, book) ? `ehl-book ehl-book--${index % BOOK_COLOURS}` : 'ehl-books'"
+          :class="framed(book) ? `ehl-book ehl-book--${index % BOOK_COLOURS}` : 'ehl-books'"
         >
           <ul>
             <li v-for="release in book.releases" :key="release.hit.gid">

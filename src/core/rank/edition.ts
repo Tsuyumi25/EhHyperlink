@@ -7,7 +7,7 @@ import type { SearchHit } from '../eh/ehSearch'
 import type { SourceGallery } from '../eh/galleryPage'
 import { type Language, languageOf } from './languages'
 import { relationOf } from '../search/relation'
-import { TITLE_BAR } from '../search/searchPlan'
+import { TITLE_BAR } from '../title/titleStructure'
 import { creatorsAgree, creatorVerdict, galleryTitleSimilarity, hasAiGeneratedTag, mentionsWork, relationshipIsBlocked, SIMILARITY_THRESHOLD } from './titleSimilarity'
 
 /** Quality flags a reader wants to see next to an edition, read from tags. */
@@ -92,8 +92,28 @@ export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[])
 }
 
 /**
- * The identity a release shares with every other release of the same book:
- * creator block, work phrase, series counter. Structural equality rather than a
+ * Every run of digits in the text, in the order written. A volume number does
+ * not have to sit at the end to separate two books (`Vol. 2 Work Beta`), and the
+ * trailing counter alone would read both as the same one.
+ */
+function numbersOf(text: string): string[] {
+  const numbers: string[] = []
+  let run = ''
+  for (const character of text) {
+    if (character >= '0' && character <= '9') run += character
+    else if (run) {
+      numbers.push(run)
+      run = ''
+    }
+  }
+  if (run) numbers.push(run)
+  return numbers
+}
+
+/**
+ * Everything that has to agree before two releases are called one book: creator
+ * block, work phrase, series counter, the numbers written anywhere in the work
+ * text, and whatever a mirrored mark wrapped. Structural equality rather than a
  * similarity score — grouping asserts "these are one book", and a reader misled
  * by a wrong group cannot see that the titles differed.
  *
@@ -103,9 +123,11 @@ export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[])
  * splits one book into one group per translation (corpus sample: 987 keys
  * collapse, 828 books go from alone to standing beside a sibling).
  *
- * The counter is looked for on both sides: 6.8% of barred titles write it only
- * after the bar (`Work Beta | 作品乙 Ch. 1`), and losing it would merge two
- * chapters into one book.
+ * Two things the phrase cannot carry decide the rest. The counter is looked for
+ * on both sides of the bar, because 6.8% of barred titles write it only after
+ * (`Work Beta | 作品乙 Ch. 1`). And the wrapped subtitle is compared, because a
+ * search phrase drops it and two parts of one series are then written alike
+ * (`Work Beta ~副題甲~` against `Work Beta ~副題乙~`).
  */
 function bookKeyOf(hit: SearchHit): string {
   const parts = analyzeTitle(hit.title || hit.titleJpn)
@@ -116,7 +138,13 @@ function bookKeyOf(hit: SearchHit): string {
     if (counter) break
     counter = readWorkText(half).counter
   }
-  return [parts.identity, normalizeMarkerText(head.phrase), counter].join('\u0000')
+  return [
+    parts.identity,
+    normalizeMarkerText(head.phrase),
+    counter,
+    numbersOf(halves[0]).join('.'),
+    parts.wrapped.map(normalizeMarkerText).sort().join('.'),
+  ].join('\u0000')
 }
 
 /**

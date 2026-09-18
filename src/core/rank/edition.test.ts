@@ -96,6 +96,21 @@ describe('edition scoring and grouping', () => {
     )
     expect(books.map((book) => book.releases.map((release) => release.hit.gid))).toEqual([[1, 2, 3], [4], [5]])
   })
+
+  it('separates books the search phrase writes alike: wrapped subtitle, and a number the counter misses', () => {
+    const books = groupReleases(
+      [
+        // the phrase drops what the marks wrapped, so only the wrapper separates these two
+        hit(1, '[Circle Alpha] Work Beta ~副題甲~ [Chinese]', ['language:chinese']),
+        hit(2, '[Circle Alpha] Work Beta ~副題甲~ [Chinese] [Beta Scans]', ['language:chinese']),
+        hit(3, '[Circle Alpha] Work Beta ~副題乙~ [Chinese]', ['language:chinese']),
+        // the chapter marker reads the first number only; the second still tells them apart
+        hit(4, '[Circle Alpha] Work Gamma Ch. 1 & 4 [Chinese]', ['language:chinese']),
+        hit(5, '[Circle Alpha] Work Gamma Ch. 1 [Chinese]', ['language:chinese']),
+      ].map((galleryHit) => toEdition(galleryHit, 0.9)),
+    )
+    expect(books.map((book) => book.releases.map((release) => release.hit.gid))).toEqual([[1, 2], [3], [4], [5]])
+  })
 })
 
 describe('language detection', () => {

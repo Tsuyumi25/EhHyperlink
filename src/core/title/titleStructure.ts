@@ -69,16 +69,23 @@ const ALNUM_RE = compile(anyOf(letter, unicode('N')))
  */
 const MIRRORED_MARKS = '-~～〜―－●★◆=*❤♥'
 
+/** ehwiki: a translated title follows the original after a spaced vertical bar. */
+export const TITLE_BAR = ' | '
+
 /**
- * The wrapped block out of one run of text.
+ * The wrapped block out of one run of text, collecting what was wrapped.
  *
  * Three conditions, each measured: the mark appears exactly twice and opens on a
  * word boundary; it sits tight against what it wraps, which is what tells a
  * wrapper from a separator (76.2% of candidates); and text survives outside it,
  * because in 1.4% of cases the wrapper is the whole title (`~作品乙~`,
  * `-Work Beta-`, `★作品丙★`) and dropping it would leave nothing.
+ *
+ * Only a block before the bar is collected. The translated half wraps the
+ * translation of the same subtitle (`~副題甲~` / `~Subtitle Alpha~`), so it
+ * varies release to release; 2.7% of barred titles wrap on both sides.
  */
-function stripMirroredBlocks(text: string): string {
+function stripMirroredBlocks(text: string, wrapped: string[]): string {
   let out = text
   for (const mark of MIRRORED_MARKS) {
     const first = out.indexOf(mark)
@@ -92,6 +99,8 @@ function stripMirroredBlocks(text: string): string {
     if (!ALNUM_RE.test(inner) || inner !== inner.trim()) continue
     const outside = (out.slice(0, first) + ' ' + out.slice(last + 1)).trim()
     if (!ALNUM_RE.test(outside)) continue
+    const bar = out.indexOf(TITLE_BAR)
+    if (bar === -1 || first < bar) wrapped.push(inner)
     out = outside
   }
   return out
@@ -118,6 +127,11 @@ export interface TitleParts {
    * would be a string no gallery carries — they stay apart.
    */
   coreSegments: string[]
+  /**
+   * What a mirrored mark wrapped in the original half of the title: a subtitle
+   * that is sometimes the only thing separating two books of one series.
+   */
+  wrapped: string[]
   /** context as written in the title, for container searches */
   contextText: string
   balanced: boolean
@@ -173,7 +187,7 @@ export function analyzeTitle(value: string): TitleParts {
   const parsed = parseTitleSegments(value)
   if (parsed === null) {
     const text = value.normalize('NFKC').trim()
-    return { core: normalizeTitleText(value), identity: '', context: '', coreSegments: text ? [text] : [], contextText: '', balanced: false }
+    return { core: normalizeTitleText(value), identity: '', context: '', coreSegments: text ? [text] : [], wrapped: [], contextText: '', balanced: false }
   }
 
   // Claim first: any block the marker table recognizes carries no work identity
@@ -212,13 +226,15 @@ export function analyzeTitle(value: string): TitleParts {
   const written = core.map((text) => text.split(whitespaceRun).filter(Boolean).join(' ')).filter(Boolean)
   // the wrapped block leaves `core` alone: scoring compares the whole work text,
   // while a search phrase drops what the marks wrapped
-  const coreSegments = written.map((text) => stripMirroredBlocks(text)).filter(Boolean)
+  const wrapped: string[] = []
+  const coreSegments = written.map((text) => stripMirroredBlocks(text, wrapped)).filter(Boolean)
   const contextText = context.join(' ').split(whitespaceRun).filter(Boolean).join(' ')
   return {
     core: normalizeTitleText(written.join(' ')),
     identity: normalizeTitleText(identity.join(' ')),
     context: normalizeTitleText(contextText),
     coreSegments,
+    wrapped,
     contextText,
     balanced: true,
   }

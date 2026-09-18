@@ -1,6 +1,5 @@
 import { readWorkText, type WorkText } from '../title/chapter'
-import { TITLE_BAR } from './searchPlan'
-import { analyzeTitle, normalizeTitleText } from '../title/titleStructure'
+import { analyzeTitle, normalizeTitleText, TITLE_BAR } from '../title/titleStructure'
 
 /**
  * Whether a matched gallery is the same book in another language / release

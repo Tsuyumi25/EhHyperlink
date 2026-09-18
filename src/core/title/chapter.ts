@@ -60,7 +60,8 @@ const cjkChapter = exactly('第')
  * so they are read wherever they sit. Each entry had a same-creator sibling with
  * a different ending in at least 60% of corpus cases (前編 70%, 後編 77%,
  * 中編 84%, 上巻 80%, 下巻 79%, 最終話 85%) or an existing base work in at least
- * 25% (完結編 43%, 総集編 28%, 新装版 34%).
+ * 25% (完結編 43%, 総集編 28%, 新装版 34%). The romanized forms below carry
+ * their own counts.
  *
  * Harvested from every `編` / `篇` word in the corpus with at least 30
  * occurrences, then narrowed to the ones that name a position in a series rather
@@ -73,12 +74,39 @@ const cjkChapter = exactly('第')
  * 完结篇 40); a translated edition writes them where the original writes kanji,
  * and stripping both sides is what lets the remaining work text match.
  */
-const seriesWord = anyOf(
+const kanjiSeriesWord = anyOf(
   '最終話', '番外編', '番外篇', '完結編', '完结篇', '総集編', '總集篇', '总集篇',
   '特別編', '特別篇', '特别篇', '完全版', '新装版', '続編',
   '前編', '後編', '中編', '前篇', '後篇', '后篇', '上篇', '中篇', '下篇',
   '上巻', '中巻', '下巻', '序章', '本編', '全編',
 )
+
+/**
+ * The same words romanized. ehwiki `Renaming` romanizes the Japanese title into
+ * the `title` field, so a part written `後編` in `title_jpn` reads `Kouhen`
+ * there — and a table of kanji alone only ever reached one of the two fields,
+ * leaving the two search phrases of one gallery out of step.
+ *
+ * Corpus, measured on group tails the same way as the kanji entries: a sibling
+ * ending for gekan 76.9% (186 tails), chuuhen 76.3% (308), joukan 69.3% (212),
+ * kouhen 68.4% (1,924), zenpen 60.8% (2,560); saishuuwa, bangaihen and
+ * soushuuhen come in on the base-work side at 60.2% (211), 44.4% (342) and
+ * 30.0% (2,161), which is how 総集編 and 完結編 earned their places.
+ *
+ * Left out: `kanketsuhen` (11.6% sibling, 22.6% base — under both bars),
+ * `honpen` (0% / 18.8%), and `chuukan` (88% sibling but 25 tails, under the 30
+ * the table asks for, and it romanizes 中間 as readily as 中巻).
+ *
+ * A letter on either side disqualifies the match, so `Kouhentai` keeps its text.
+ * A digit does not: `Soushuuhen2` still reads as a marker.
+ */
+const romajiSeriesWord = anyOf(
+  'soushuuhen', 'bangaihen', 'saishuuwa', 'chuuhen', 'zenpen', 'kouhen', 'joukan', 'gekan',
+)
+  .notAfter(letter)
+  .notBefore(letter)
+
+const seriesWord = anyOf(kanjiSeriesWord, romajiSeriesWord)
 
 /**
  * Labelled markers, read wherever they sit — the label settles what the number

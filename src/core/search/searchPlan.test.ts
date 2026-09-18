@@ -83,6 +83,23 @@ describe('chapter markers', () => {
     expect(readWorkText('作品乙 とてもとてもとても長い題名の編').phrase).toBe('作品乙 とてもとてもとても長い題名の編')
   })
 
+  it('reads the romanized series words the other title field writes in kanji', () => {
+    expect(readWorkText('Work Beta Zenpen')).toEqual({ phrase: 'Work Beta', counter: 'Zenpen' })
+    expect(readWorkText('Work Beta Kouhen')).toEqual({ phrase: 'Work Beta', counter: 'Kouhen' })
+    expect(readWorkText('Work Beta Gekan').phrase).toBe('Work Beta')
+    expect(readWorkText('Work Beta Saishuuwa').phrase).toBe('Work Beta')
+    // a digit after it is still the same marker
+    expect(readWorkText('Work Beta Soushuuhen2').phrase).toBe('Work Beta')
+    expect(readWorkText('Work Beta-Soushuuhen-').phrase).toBe('Work Beta')
+    // a letter on either side means it is part of a word
+    expect(readWorkText('Work Beta Kouhentai').phrase).toBe('Work Beta Kouhentai')
+    expect(readWorkText('Work Kouhenbeta').phrase).toBe('Work Kouhenbeta')
+    // under the corpus bar, so deliberately absent
+    expect(readWorkText('Work Beta Kanketsuhen').phrase).toBe('Work Beta Kanketsuhen')
+    expect(readWorkText('Work Beta Honpen').phrase).toBe('Work Beta Honpen')
+    expect(readWorkText('Work Beta Chuukan').phrase).toBe('Work Beta Chuukan')
+  })
+
   it('reads a marker at the end of any group, not only of the whole text', () => {
     // punctuation after the marker no longer hides it, and the emptied group takes its separator
     expect(readWorkText('作品乙 後編。').phrase).toBe('作品乙')
@@ -167,6 +184,12 @@ describe('search planning', () => {
     const plan = planSearch({ ...source, titleJpn: '[作者甲] 作品乙' })
     expect(plan.editionTerms).toEqual(['Work Beta', '作品乙'])
     expect(plan.containerTerms).toEqual([])
+  })
+
+  it('reduces a romanized field and a kanji field to the same work', () => {
+    // ehwiki romanizes the Japanese title, so one gallery writes the part two ways
+    const plan = planSearch({ ...source, title: '[Circle Alpha] Work Beta Kouhen', titleJpn: '[圓環甲] 作品乙 後編' })
+    expect(plan.editionTerms).toEqual(['Work Beta', '作品乙'])
   })
 
   it('skips digit-only and duplicate work text', () => {

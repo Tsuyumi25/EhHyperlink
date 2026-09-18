@@ -56,6 +56,21 @@ describe('chapter markers', () => {
     expect(readWorkText('Version 1.2.3').phrase).toBe('Version 1.2.3')
     expect(readWorkText('7').phrase).toBe('7')
   })
+
+  it('drops a span of counters, whichever dash the title writes it with', () => {
+    expect(readWorkText('Work Beta 1~36')).toEqual({ phrase: 'Work Beta', counter: '1~36' })
+    expect(readWorkText('Work Beta 1-36').phrase).toBe('Work Beta')
+    expect(readWorkText('Work Beta 1–36').phrase).toBe('Work Beta')
+    expect(readWorkText('Work Beta 1—36').phrase).toBe('Work Beta')
+    expect(readWorkText('Work Beta 1－36').phrase).toBe('Work Beta')
+    expect(readWorkText('作品乙 1~36').phrase).toBe('作品乙')
+    expect(readWorkText('作品丙 第72~74話').phrase).toBe('作品丙')
+    // the fullwidth wave dashes reach the same titles as group separators
+    expect(readWorkText('作品乙 1〜36').phrase).toBe('作品乙')
+    // a comma enumerates rather than spans, and four digits are not a counter
+    expect(readWorkText('Work Beta 1,2,3').phrase).toBe('Work Beta 1,2,3')
+    expect(readWorkText('Work Beta 2007.1~12').phrase).toBe('Work Beta 2007.1~12')
+  })
   it('reads CJK numeral counters and leaves non-numeral kanji runs alone', () => {
     expect(readWorkText('作品丙 第三話').phrase).toBe('作品丙')
     expect(readWorkText('作品丙 第十二巻').phrase).toBe('作品丙')

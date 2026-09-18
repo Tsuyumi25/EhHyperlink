@@ -22,9 +22,23 @@ const number = digit.times.between(1, 3)
     exactly('.').and(digit.times.between(1, 2)),
   ))
 
+/**
+ * Separators that write a span of counters. Corpus counts of
+ * `<digits><separator><digits>`, and how many of those close their group:
+ * `-` 108,895 / 68,421, `~` 5,130 / 2,898, `–` 477 / 449, `－` 176 / 102,
+ * `—` 79 / 28.
+ *
+ * Left out: `,` (3,617) and `、` (443) enumerate rather than span
+ * (`章1-4、10、12`), and `,` separates names as readily as numbers. The
+ * fullwidth wave dashes are `GROUP_SEPARATOR` already, which reaches the same
+ * titles by splitting them. `ー` has four occurrences and is a letter —
+ * `cjkLetter` holds it so that `カラー9` reads as a counter glued to a word.
+ */
+const RANGE_SEPARATOR = charIn('-~–—－')
+
 const counter = number
   .and(maybe(
-    exactly('-').and(number),
+    RANGE_SEPARATOR.and(number),
   ))
 
 /** `三`, `十二`, `一百零二`, `弐`; captured so the run can be validated as a real numeral. */

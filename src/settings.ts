@@ -13,7 +13,9 @@ export interface Settings {
   showSubtitle: boolean
 }
 
-const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: false }
+// Romanized reads as one line on every locale, and the second line is what tells
+// two releases of one book apart when the work text is identical.
+const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: true }
 
 export const settings = reactive<Settings>({ ...INITIAL })
 

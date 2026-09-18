@@ -42,6 +42,26 @@ describe('structural title cleaning', () => {
     const parts = analyzeTitle('[Circle Alpha] Work Alpha (Series Beta) [Chinese] [DL版]7.6 MB')
     expect(parts.coreSegments).toEqual(['Work Alpha', '7.6 MB'])
   })
+
+  it('drops a block the same mark wrapped tightly, keeping it out of search only', () => {
+    // subtitle, part name, platform tag, scanlator signature — never the work
+    expect(analyzeTitle('[Circle Alpha] Work Beta ~作品乙~').coreSegments).toEqual(['Work Beta'])
+    expect(analyzeTitle('[Circle Alpha] Work Beta -Gamma-').coreSegments).toEqual(['Work Beta'])
+    expect(analyzeTitle('[Circle Alpha] ★Signature★ Work Beta').coreSegments).toEqual(['Work Beta'])
+    // scoring still sees the whole written work text
+    expect(analyzeTitle('[Circle Alpha] Work Beta ~作品乙~').core).toBe('work beta 作品乙')
+  })
+
+  it('keeps a wrapper that is the whole work text', () => {
+    expect(analyzeTitle('[Circle Alpha] ~作品乙~').coreSegments).toEqual(['~作品乙~'])
+    expect(analyzeTitle('[Circle Alpha] -Work Beta-').coreSegments).toEqual(['-Work Beta-'])
+  })
+
+  it('leaves a mark that separates rather than wraps', () => {
+    // loose spacing marks a separator, and `|` splits translated titles
+    expect(analyzeTitle('[Circle Alpha] Work Beta - Gamma -').coreSegments).toEqual(['Work Beta - Gamma -'])
+    expect(analyzeTitle('[Circle Alpha] Work Beta | 作品乙').coreSegments).toEqual(['Work Beta | 作品乙'])
+  })
 })
 
 describe('marker claiming', () => {

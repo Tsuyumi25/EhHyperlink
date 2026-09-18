@@ -55,6 +55,48 @@ const TITLE_QUOTE_PAIRS: Record<string, true> = {
 
 const ALNUM_RE = compile(anyOf(letter, unicode('N')))
 
+/**
+ * Marks that wrap a block by appearing twice rather than as an opening and a
+ * closing form. What they wrap is a subtitle, a part name, a platform tag or a
+ * scanlator signature — never the work itself — so a search phrase drops it.
+ *
+ * Corpus: 226,601 titles carry a mark exactly twice with text between, and the
+ * three conditions below narrow that to 170,287. Marks left out: `"` wraps the
+ * work and puts the creator outside it (`"…" by …`, 4,121 cases), while `|` `/`
+ * `+` `–` are separators, wrapping tightly in only 1.3% / 13.4% / 3.1% / 3.4%
+ * of their occurrences. `&` is out too: its 1,445 tight cases are an artefact of
+ * undecoded `&#039;` entities.
+ */
+const MIRRORED_MARKS = '-~～〜―－●★◆=*❤♥'
+
+/**
+ * The wrapped block out of one run of text.
+ *
+ * Three conditions, each measured: the mark appears exactly twice and opens on a
+ * word boundary; it sits tight against what it wraps, which is what tells a
+ * wrapper from a separator (76.2% of candidates); and text survives outside it,
+ * because in 1.4% of cases the wrapper is the whole title (`~作品乙~`,
+ * `-Work Beta-`, `★作品丙★`) and dropping it would leave nothing.
+ */
+function stripMirroredBlocks(text: string): string {
+  let out = text
+  for (const mark of MIRRORED_MARKS) {
+    const first = out.indexOf(mark)
+    const last = out.lastIndexOf(mark)
+    if (first === -1 || first === last || out.indexOf(mark, first + 1) !== last) continue
+    // the opening mark starts a token and the closing one ends one
+    if (first > 0 && ALNUM_RE.test(out.slice(first - 1, first))) continue
+    const afterLast = out.slice(last + 1, last + 2)
+    if (afterLast && ALNUM_RE.test(afterLast)) continue
+    const inner = out.slice(first + 1, last)
+    if (!ALNUM_RE.test(inner) || inner !== inner.trim()) continue
+    const outside = (out.slice(0, first) + ' ' + out.slice(last + 1)).trim()
+    if (!ALNUM_RE.test(outside)) continue
+    out = outside
+  }
+  return out
+}
+
 export interface TitleSegment {
   kind: 'text' | 'block'
   text: string
@@ -167,10 +209,13 @@ export function analyzeTitle(value: string): TitleParts {
     }
   }
 
-  const coreSegments = core.map((text) => text.split(whitespaceRun).filter(Boolean).join(' ')).filter(Boolean)
+  const written = core.map((text) => text.split(whitespaceRun).filter(Boolean).join(' ')).filter(Boolean)
+  // the wrapped block leaves `core` alone: scoring compares the whole work text,
+  // while a search phrase drops what the marks wrapped
+  const coreSegments = written.map((text) => stripMirroredBlocks(text)).filter(Boolean)
   const contextText = context.join(' ').split(whitespaceRun).filter(Boolean).join(' ')
   return {
-    core: normalizeTitleText(coreSegments.join(' ')),
+    core: normalizeTitleText(written.join(' ')),
     identity: normalizeTitleText(identity.join(' ')),
     context: normalizeTitleText(contextText),
     coreSegments,

@@ -69,8 +69,13 @@ export interface TitleParts {
   identity: string
   /** series / container read from a context-family block after the core, normalized */
   context: string
-  /** core as written in the title (whitespace collapsed), for building search terms */
-  coreText: string
+  /**
+   * Core as written in the title, one entry per run of top-level text
+   * (whitespace collapsed). A bracket block between two runs means the title
+   * never wrote them next to each other, so a search phrase built from both
+   * would be a string no gallery carries — they stay apart.
+   */
+  coreSegments: string[]
   /** context as written in the title, for container searches */
   contextText: string
   balanced: boolean
@@ -126,7 +131,7 @@ export function analyzeTitle(value: string): TitleParts {
   const parsed = parseTitleSegments(value)
   if (parsed === null) {
     const text = value.normalize('NFKC').trim()
-    return { core: normalizeTitleText(value), identity: '', context: '', coreText: text, contextText: '', balanced: false }
+    return { core: normalizeTitleText(value), identity: '', context: '', coreSegments: text ? [text] : [], contextText: '', balanced: false }
   }
 
   // Claim first: any block the marker table recognizes carries no work identity
@@ -162,13 +167,13 @@ export function analyzeTitle(value: string): TitleParts {
     }
   }
 
-  const coreText = core.join(' ').split(whitespaceRun).filter(Boolean).join(' ')
+  const coreSegments = core.map((text) => text.split(whitespaceRun).filter(Boolean).join(' ')).filter(Boolean)
   const contextText = context.join(' ').split(whitespaceRun).filter(Boolean).join(' ')
   return {
-    core: normalizeTitleText(coreText),
+    core: normalizeTitleText(coreSegments.join(' ')),
     identity: normalizeTitleText(identity.join(' ')),
     context: normalizeTitleText(contextText),
-    coreText,
+    coreSegments,
     contextText,
     balanced: true,
   }

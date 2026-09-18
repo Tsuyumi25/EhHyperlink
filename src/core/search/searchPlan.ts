@@ -35,9 +35,12 @@ const LETTER_RE = compile(letter)
 /** ehwiki: a translated title follows the original after a spaced vertical bar. */
 export const TITLE_BAR = ' | '
 
-/** Search phrases for one title field: each side of a vertical bar, cut at its chapter marker, letters required. */
-export function editionTermsOf(coreText: string): string[] {
-  return coreText
+/**
+ * Search phrases for one run of top-level text: each side of a vertical bar, cut
+ * at its chapter marker, letters required.
+ */
+export function editionTermsOf(coreSegment: string): string[] {
+  return coreSegment
     .split(TITLE_BAR)
     .map((part) => readWorkText(part).phrase)
     .filter((part) => LETTER_RE.test(part))
@@ -48,8 +51,10 @@ export function planSearch(source: SourceGallery): SearchPlan {
   const editionTerms: string[] = []
   for (const value of [source.title, source.titleJpn]) {
     if (!value) continue
-    for (const term of editionTermsOf(analyzeTitle(value).coreText)) {
-      if (!editionTerms.includes(term)) editionTerms.push(term)
+    for (const segment of analyzeTitle(value).coreSegments) {
+      for (const term of editionTermsOf(segment)) {
+        if (!editionTerms.includes(term)) editionTerms.push(term)
+      }
     }
   }
   return { editionTerms, scope: creatorScope(source.tags), ...planContainerSearch(source, (text) => LETTER_RE.test(text), editionTerms) }

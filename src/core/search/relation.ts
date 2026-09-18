@@ -16,10 +16,12 @@ function workKeysOf(gallery: { title: string; titleJpn: string }): WorkText[] {
   const keys: WorkText[] = []
   for (const value of [gallery.title, gallery.titleJpn]) {
     if (!value) continue
-    for (const segment of analyzeTitle(value).coreText.split(TITLE_BAR)) {
-      const { phrase, counter } = readWorkText(normalizeTitleText(segment))
-      if (!phrase) continue
-      keys.push({ phrase, counter })
+    for (const segment of analyzeTitle(value).coreSegments) {
+      for (const part of segment.split(TITLE_BAR)) {
+        const { phrase, counter } = readWorkText(normalizeTitleText(part))
+        if (!phrase) continue
+        keys.push({ phrase, counter })
+      }
     }
   }
   return keys

@@ -29,11 +29,18 @@ describe('structural title cleaning', () => {
     }
   })
 
-  it('keeps the written core text for search terms', () => {
+  it('keeps each run of top-level text apart, as written', () => {
     const parts = analyzeTitle("[Circle Alpha] Work Alpha (Series Alpha!!) [Thai ภาษาไทย] [Decensored]")
-    expect(parts.coreText).toBe("Work Alpha")
+    expect(parts.coreSegments).toEqual(['Work Alpha'])
     expect(parts.core).toBe('work alpha')
     expect(parts.contextText).toBe('Series Alpha!!')
+  })
+
+  it('never joins two runs a bracket block separated', () => {
+    // the title wrote `Work Alpha` before the block and `7.6 MB` after it, so no
+    // gallery carries the two side by side and no phrase may put them there
+    const parts = analyzeTitle('[Circle Alpha] Work Alpha (Series Beta) [Chinese] [DL版]7.6 MB')
+    expect(parts.coreSegments).toEqual(['Work Alpha', '7.6 MB'])
   })
 })
 

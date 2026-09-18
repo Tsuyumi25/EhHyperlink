@@ -62,8 +62,11 @@ export function planContainerSearch(source: SourceGallery, hasLetters: (text: st
   const chapterTerms: string[] = []
   if (isContainerCandidate) {
     for (const value of fieldsOf(source)) {
-      const { coreText } = analyzeTitle(value)
-      if (hasLetters(coreText) && !editionTerms.includes(coreText) && !chapterTerms.includes(coreText)) chapterTerms.push(coreText)
+      // one term per run of top-level text: a bracket block between two runs means
+      // the title never wrote them side by side
+      for (const segment of analyzeTitle(value).coreSegments) {
+        if (hasLetters(segment) && !editionTerms.includes(segment) && !chapterTerms.includes(segment)) chapterTerms.push(segment)
+      }
     }
   }
   return { containerTerms, containerNames, isContainerCandidate, chapterTerms }

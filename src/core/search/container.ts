@@ -50,12 +50,17 @@ export function planContainerSearch(source: SourceGallery, hasLetters: (text: st
   let hasContext = false
   const parodies = tagValues(source.tags, 'parody')
   for (const value of fieldsOf(source)) {
-    const { context, contextText } = analyzeTitle(value)
-    if (!context) continue
+    const { contextBlocks } = analyzeTitle(value)
+    if (contextBlocks.length === 0) continue
     hasContext = true
-    if (parodies.includes(context) || containerNames.includes(context)) continue
-    containerTerms.push(contextText)
-    containerNames.push(context)
+    // one term per block: a part number and a magazine name sit in blocks of
+    // their own, and the two joined name nothing
+    for (const block of contextBlocks) {
+      const name = normalizeTitleText(block)
+      if (!name || !hasLetters(block) || parodies.includes(name) || containerNames.includes(name)) continue
+      containerTerms.push(block)
+      containerNames.push(name)
+    }
   }
 
   const isContainerCandidate = !hasContext
@@ -80,12 +85,16 @@ export function matchContainers(containerNames: readonly string[], hits: readonl
 }
 
 /**
- * The reverse: chapters cut from this gallery carry its work text as their own
- * context block, in either field. Exact match on the normalized text, so `Vol. 18`
- * and `Vol.18` agree but `Vol. 17` does not.
+ * The reverse: chapters cut from this gallery carry its work text as one of
+ * their own context blocks, in either field. Exact match on the normalized
+ * text, so `Vol. 18` and `Vol.18` agree but `Vol. 17` does not — and read block
+ * by block, because a chapter that also carries a part number (`… (3)
+ * (Magazine Vol. 20)`) would otherwise be compared against both joined.
  */
 export function matchExtractedChapters(source: SourceGallery, hits: readonly SearchHit[]): SearchHit[] {
   const names = fieldsOf(source).map((value) => analyzeTitle(value).core).filter(Boolean)
   if (names.length === 0) return []
-  return hits.filter((hit) => fieldsOf(hit).some((value) => names.includes(analyzeTitle(value).context)))
+  return hits.filter((hit) =>
+    fieldsOf(hit).some((value) => analyzeTitle(value).contextBlocks.some((block) => names.includes(normalizeTitleText(block)))),
+  )
 }

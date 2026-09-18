@@ -195,17 +195,26 @@ function workPhrases(title: string, titleJpn: string): string[] {
  * test, 4.4% for the threshold, and the samples are series siblings whose
  * phrases differ by a suffix.
  *
+ * The phrase has to land in the other title's *work* text, not in a context
+ * block. A chapter names its magazine there, and a magazine's own phrase is the
+ * name without the issue number (`COMIC … Monthly` out of `… Vol. 5`), so
+ * matching context admitted every chapter of every issue at a score of 0 — the
+ * chapters of this issue reach the reader through `matchExtractedChapters`,
+ * which compares the container name in full. Corpus: of 72,167 same-creator
+ * pairs, 204 pass on a context block alone, and `mentionsWork` still takes 118
+ * of those.
+ *
  * The score still describes the pair — it decides nothing here, and grouping
  * reads it as before.
  */
 export function sharesWorkPhrase(sourceTitle: string, sourceTitleJpn: string, candidateTitle: string, candidateTitleJpn: string): boolean {
-  const sourceTexts = workTexts(sourceTitle, sourceTitleJpn).map((text) => text.all)
-  const candidateTexts = workTexts(candidateTitle, candidateTitleJpn).map((text) => text.all)
+  const sourceCores = workTexts(sourceTitle, sourceTitleJpn).map((text) => text.core)
+  const candidateCores = workTexts(candidateTitle, candidateTitleJpn).map((text) => text.core)
   for (const phrase of workPhrases(sourceTitle, sourceTitleJpn)) {
-    if (candidateTexts.some((text) => text.includes(phrase))) return true
+    if (candidateCores.some((core) => core.includes(phrase))) return true
   }
   for (const phrase of workPhrases(candidateTitle, candidateTitleJpn)) {
-    if (sourceTexts.some((text) => text.includes(phrase))) return true
+    if (sourceCores.some((core) => core.includes(phrase))) return true
   }
   return false
 }

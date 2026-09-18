@@ -181,6 +181,26 @@ describe('edition scoring and grouping', () => {
     const { editions, series } = scoreEditions(work, [sibling])
     expect([...editions, ...series]).toHaveLength(0)
   })
+
+  it('leaves chapters of other issues out when the source is a magazine', () => {
+    // a magazine carries every contributor's tag, so the creator always agrees
+    const issue: SourceGallery = {
+      gid: 1000,
+      title: 'COMIC Alphabeta Monthly Vol. 5',
+      titleJpn: 'コミックアルファベータ Vol.5',
+      category: 'Manga',
+      tags: ['artist:artist alpha', 'artist:artist beta'],
+    }
+    const { editions, series } = scoreEditions(issue, [
+      // other issues are the series
+      hit(2001, 'COMIC Alphabeta Monthly Vol. 2', ['artist:artist alpha']),
+      // a chapter of another issue names the magazine in its context block, and the
+      // magazine's own phrase is the name without the issue number
+      hit(4001, '[Circle Alpha] Work Gamma (COMIC Alphabeta Monthly Vol. 2) [Chinese]', ['artist:artist alpha', 'language:chinese']),
+      hit(4002, '[Circle Beta] Work Delta Ch. 3 (COMIC Alphabeta Monthly Vol. 11) [Chinese]', ['artist:artist beta', 'language:chinese']),
+    ])
+    expect([...editions, ...series].map((edition) => edition.hit.gid)).toEqual([2001])
+  })
 })
 
 describe('language detection', () => {

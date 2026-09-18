@@ -158,7 +158,14 @@ export interface TitleParts {
    * that is sometimes the only thing separating two books of one series.
    */
   wrapped: string[]
-  /** context as written in the title, for container searches */
+  /**
+   * Each context block as written, one entry per block. A chapter can carry a
+   * part number and its magazine in two of them (`… Hen (3)- (COMIC … Vol. 20)`),
+   * and a container name matched against the two joined is a string no title
+   * holds: 2.8% of Manga fields with a `()` block have more than one.
+   */
+  contextBlocks: string[]
+  /** every context block as written, joined — the whole of what followed the work */
   contextText: string
   balanced: boolean
 }
@@ -213,7 +220,7 @@ export function analyzeTitle(value: string): TitleParts {
   const parsed = parseTitleSegments(value)
   if (parsed === null) {
     const text = value.normalize('NFKC').trim()
-    return { core: normalizeTitleText(value), identity: '', context: '', coreSegments: text ? [text] : [], wrapped: [], contextText: '', balanced: false }
+    return { core: normalizeTitleText(value), identity: '', context: '', coreSegments: text ? [text] : [], wrapped: [], contextBlocks: [], contextText: '', balanced: false }
   }
 
   // Claim first: any block the marker table recognizes carries no work identity
@@ -254,14 +261,15 @@ export function analyzeTitle(value: string): TitleParts {
   // while a search phrase drops what the marks wrapped
   const wrapped: string[] = []
   const coreSegments = written.map((text) => stripMirroredBlocks(text, wrapped)).filter(Boolean)
-  const contextText = context.join(' ').split(whitespaceRun).filter(Boolean).join(' ')
+  const contextBlocks = context.map((text) => text.split(whitespaceRun).filter(Boolean).join(' ')).filter(Boolean)
   return {
     core: normalizeTitleText(written.join(' ')),
     identity: normalizeTitleText(identity.join(' ')),
-    context: normalizeTitleText(contextText),
+    context: normalizeTitleText(contextBlocks.join(' ')),
     coreSegments,
     wrapped,
-    contextText,
+    contextBlocks,
+    contextText: contextBlocks.join(' '),
     balanced: true,
   }
 }

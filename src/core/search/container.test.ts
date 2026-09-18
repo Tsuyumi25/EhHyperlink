@@ -57,4 +57,17 @@ describe('container matching', () => {
     ])
     expect(chapters.map((chapter) => chapter.gid)).toEqual([11, 12])
   })
+
+  it('reads the container out of its own block when the chapter also carries a part number', () => {
+    const magazine: SourceGallery = { ...manga, title: 'COMIC Alphabeta Monthly Vol. 18', titleJpn: 'コミック甲 Vol.18' }
+    // the part number sits in a block of its own, and the two joined name nothing
+    const chapters = matchExtractedChapters(magazine, [
+      hit(21, '[Artist Alpha] Work Beta -Subtitle Alpha (3)- (COMIC Alphabeta Monthly Vol. 18) [English]'),
+      hit(22, '[Artist Beta] Work Gamma (2) (COMIC Alphabeta Monthly Vol. 17) [English]'),
+    ])
+    expect(chapters.map((chapter) => chapter.gid)).toEqual([21])
+    // and the same chapter searches for that container, not for `3 COMIC …`
+    const chapter = planSearch({ ...manga, title: '[Artist Alpha] Work Beta -Subtitle Alpha (3)- (COMIC Alphabeta Monthly Vol. 18) [English]' })
+    expect(chapter.containerTerms).toEqual(['COMIC Alphabeta Monthly Vol. 18'])
+  })
 })

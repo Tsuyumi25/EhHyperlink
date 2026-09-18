@@ -92,6 +92,18 @@ describe('shared work phrase', () => {
     expect(sharesWorkPhrase('[Circle Alpha] Work Beta Collection', '', '[Circle Alpha] Work Beta', '')).toBe(true)
   })
 
+  it('does not let a magazine name in a context block stand for a shared work', () => {
+    const issue = 'COMIC Alphabeta Monthly Vol. 5'
+    // the magazine's own phrase is the name without the issue number, so matching
+    // context blocks admitted every chapter of every issue
+    expect(sharesWorkPhrase(issue, '', '[Circle Alpha] Work Beta (COMIC Alphabeta Monthly Vol. 2)', '')).toBe(false)
+    // even this issue's own chapters: those reach the reader as chapters, matched
+    // on the container name in full
+    expect(sharesWorkPhrase(issue, '', '[Circle Alpha] Work Beta (COMIC Alphabeta Monthly Vol. 5)', '')).toBe(false)
+    // the other issues of the magazine are the series, and they still pass
+    expect(sharesWorkPhrase(issue, '', 'COMIC Alphabeta Monthly Vol. 2', '')).toBe(true)
+  })
+
   it('says no when the works are different, or the phrase is too short to mean anything', () => {
     expect(sharesWorkPhrase('[Circle Alpha] Work Beta', '', '[Circle Alpha] Work Gamma', '')).toBe(false)
     expect(sharesWorkPhrase('[Circle Alpha] AB', '', '[Circle Alpha] AB Something Else', '')).toBe(false)

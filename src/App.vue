@@ -283,6 +283,35 @@ function toggle(id: string): void {
   align-items: baseline;
   padding: 2px 0;
 }
+/* Releases of one book sit inside a frame. The colour cycles so two books next
+   to each other never share one; mid-saturation hues read on both the light and
+   the dark site. */
+.ehl-book {
+  display: block;
+  margin: 4px 0;
+  padding: 0 5px 0 0;
+  border: 1px solid var(--ehl-book);
+  border-left-width: 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ehl-book) 14%, transparent);
+}
+/* `.ehl-list ul` zeroes padding for the flat lists; the framed one needs its own,
+   or the rows sit against the coloured border. */
+.ehl-book ul {
+  padding-left: 8px;
+}
+.ehl-book--0 {
+  --ehl-book: hsl(205 65% 55%);
+}
+.ehl-book--1 {
+  --ehl-book: hsl(145 50% 48%);
+}
+.ehl-book--2 {
+  --ehl-book: hsl(32 75% 55%);
+}
+.ehl-book--3 {
+  --ehl-book: hsl(285 50% 62%);
+}
 .ehl-box a {
   text-decoration: none;
 }

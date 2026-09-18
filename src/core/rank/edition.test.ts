@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { detectLanguage } from './detectLanguage'
 import type { SearchHit } from '../eh/ehSearch'
 import type { SourceGallery } from '../eh/galleryPage'
-import { dedupe, editionFlags, enrichHits, groupByLanguage, scoreEditions } from './edition'
+import { dedupe, editionFlags, enrichHits, groupByLanguage, groupReleases, scoreEditions, toEdition } from './edition'
 import { creatorVerdict, galleryTitleSimilarity } from './titleSimilarity'
 
 // Every title below is invented.
@@ -31,7 +31,7 @@ describe('edition scoring and grouping', () => {
     expect(series).toEqual([])
     const groups = groupByLanguage(editions, ['chinese', 'japanese', 'english'])
     expect(groups.map((group) => group.language.value)).toEqual(['chinese', 'english', 'spanish'])
-    expect(groups[1].items.map((edition) => edition.hit.gid)).toEqual([1002])
+    expect(groups[1].books.flatMap((book) => book.releases.map((release) => release.hit.gid))).toEqual([1002])
   })
 
   it('separates the same book from other books of the series', () => {
@@ -56,6 +56,30 @@ describe('edition scoring and grouping', () => {
       hit(4, '[Circle Alpha (Artist Alpha)] Work Epsilon (Series Gamma) [Chinese]', ['artist:artist_alpha']),
     ])
     expect(series.map((edition) => edition.hit.gid)).toEqual([1, 2])
+  })
+
+  it('keeps releases of one book together and separate books apart', () => {
+    const releases = [
+      hit(1, '[Circle Alpha] Work Beta 1 [Chinese] [Alpha Scans]', ['language:chinese']),
+      hit(2, '[Circle Alpha] Work Beta 1 [Chinese] [Beta Scans] [Decensored] [38P]', ['language:chinese']),
+      hit(3, '[Circle Alpha] Work Beta 2 [Chinese] [Alpha Scans]', ['language:chinese']),
+      // a different creator writing the same work text is a different book
+      hit(4, '[Circle Omega] Work Beta 1 [Chinese] [Alpha Scans]', ['language:chinese']),
+    ].map((galleryHit) => toEdition(galleryHit, 0.9))
+    const books = groupReleases(releases)
+    expect(books.map((book) => book.releases.map((release) => release.hit.gid))).toEqual([[1, 2], [3], [4]])
+  })
+
+  it('groups releases inside each language bucket', () => {
+    const groups = groupByLanguage(
+      [
+        hit(1, '[Circle Alpha] Work Beta [Chinese] [Alpha Scans]', ['language:chinese']),
+        hit(2, '[Circle Alpha] Work Beta [Chinese] [Beta Scans]', ['language:chinese']),
+        hit(3, '[Circle Alpha] Work Beta [English]', ['language:english']),
+      ].map((galleryHit) => toEdition(galleryHit, 0.9)),
+      ['chinese', 'english'],
+    )
+    expect(groups.map((group) => group.books.map((book) => book.releases.length))).toEqual([[2], [1]])
   })
 })
 

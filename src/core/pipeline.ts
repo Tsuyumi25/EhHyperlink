@@ -7,7 +7,7 @@ import type { SourceGallery } from './eh/galleryPage'
 import { planSearch, type SearchPlan } from './search/searchPlan'
 import { hasAiGeneratedTag } from './rank/titleSimilarity'
 
-export type { Edition, EditionFlag, EditionGroup } from './rank/edition'
+export type { Book, Edition, EditionFlag, EditionGroup } from './rank/edition'
 export type { MetadataRequest, SearchRequest, SentRequest } from './eh/requestLog'
 
 export interface JumpResult {

@@ -1,5 +1,8 @@
+import { analyzeTitle } from '../title/titleStructure'
 import { detectLanguage } from './detectLanguage'
 import type { GalleryMetadata } from '../eh/ehApi'
+import { normalizeMarkerText } from '../title/titleMarkers'
+import { readWorkText } from '../title/chapter'
 import type { SearchHit } from '../eh/ehSearch'
 import type { SourceGallery } from '../eh/galleryPage'
 import { type Language, languageOf } from './languages'
@@ -16,9 +19,14 @@ export interface Edition {
   flags: EditionFlag[]
 }
 
+/** Releases the search found of one book, kept together so a reader sees them as one. */
+export interface Book {
+  releases: Edition[]
+}
+
 export interface EditionGroup {
   language: Language
-  items: Edition[]
+  books: Book[]
 }
 
 const FLAG_TAGS: Record<string, EditionFlag> = {
@@ -82,6 +90,34 @@ export function scoreEditions(source: SourceGallery, hits: readonly SearchHit[])
   return { editions, series }
 }
 
+/**
+ * The identity a release shares with every other release of the same book:
+ * creator block, work phrase, series counter. Structural equality rather than a
+ * similarity score — grouping asserts "these are one book", and a reader misled
+ * by a wrong group cannot see that the titles differed.
+ */
+function bookKeyOf(hit: SearchHit): string {
+  const parts = analyzeTitle(hit.title || hit.titleJpn)
+  const work = readWorkText(parts.coreSegments.join(' '))
+  return [parts.identity, normalizeMarkerText(work.phrase), work.counter].join('\u0000')
+}
+
+/**
+ * Releases of one book, side by side. Every title is shown as written — the
+ * differences between two scanlations live in blocks we cannot rank, so the
+ * grouping only says which rows belong together and the reader reads the rest.
+ */
+export function groupReleases(editions: readonly Edition[]): Book[] {
+  const byBook = new Map<string, Edition[]>()
+  for (const edition of editions) {
+    const key = bookKeyOf(edition.hit)
+    const bucket = byBook.get(key) ?? []
+    bucket.push(edition)
+    byBook.set(key, bucket)
+  }
+  return [...byBook.values()].map((releases) => ({ releases }))
+}
+
 /** Bucket editions by language, best score first inside a bucket, reader's languages first across buckets. */
 export function groupByLanguage(editions: readonly Edition[], priority: readonly string[]): EditionGroup[] {
   const byLanguage = new Map<string, Edition[]>()
@@ -95,6 +131,6 @@ export function groupByLanguage(editions: readonly Edition[], priority: readonly
     return index === -1 ? priority.length : index
   }
   return [...byLanguage.entries()]
-    .map(([language, items]) => ({ language: languageOf(language), items: items.sort((a, b) => b.score - a.score) }))
-    .sort((a, b) => rank(a.language.value) - rank(b.language.value) || b.items.length - a.items.length)
+    .map(([language, items]) => ({ language: languageOf(language), books: groupReleases(items.sort((a, b) => b.score - a.score)) }))
+    .sort((a, b) => rank(a.language.value) - rank(b.language.value) || b.books.length - a.books.length)
 }

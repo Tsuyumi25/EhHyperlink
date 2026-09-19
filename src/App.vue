@@ -467,8 +467,12 @@ function toggle(id: string): void {
   pointer-events: none;
   z-index: 11;
 }
-/* Five grey stars with the rated share of them laid over in colour: a fractional
-   rating (`4.71`) needs a partial star, which a count of glyphs cannot give. */
+/* Five outlined stars with the rated share of them filled in over the top: a
+   fractional rating (`4.71`) needs a partial star, which a count of glyphs cannot
+   give. The outline is drawn behind the fill, so a star keeps its whole shape at
+   whatever `-webkit-text-stroke` eats of the glyph, and the fill colour is free to be
+   the pale one the unrated stars use. Both layers inherit it, which is what carries
+   the outline across the cut where the filled layer ends mid-star. */
 .ehl-stars {
   position: relative;
   display: inline-block;
@@ -476,6 +480,8 @@ function toggle(id: string): void {
   line-height: 14px;
   letter-spacing: 1px;
   color: color-mix(in srgb, currentColor 35%, transparent);
+  -webkit-text-stroke: 0.5px currentColor;
+  paint-order: stroke fill;
   white-space: nowrap;
 }
 .ehl-stars-on {
@@ -483,7 +489,21 @@ function toggle(id: string): void {
   top: 0;
   left: 0;
   overflow: hidden;
-  color: hsl(45 90% 55%);
+  color: var(--ehl-star);
+}
+/* The letter EH names each colour by, at a saturation that reads on the light site
+   and the dark one. */
+.ehl-stars--r {
+  --ehl-star: hsl(0 75% 55%);
+}
+.ehl-stars--g {
+  --ehl-star: hsl(140 55% 45%);
+}
+.ehl-stars--b {
+  --ehl-star: hsl(210 70% 55%);
+}
+.ehl-stars--y {
+  --ehl-star: hsl(45 90% 55%);
 }
 /* The wrapper around a book's rows carries no shape of its own; only a framed
    book overrides this. */

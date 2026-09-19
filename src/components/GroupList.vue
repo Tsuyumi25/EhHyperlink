@@ -17,6 +17,18 @@ function percent(score: number): string {
   return `${Math.round(score * 100)}%`
 }
 
+/**
+ * EH tints a gallery's stars by where its rating lands, one letter per landing
+ * position: its own `RRGGB` reads as red up to 2, green through 4, blue at 4.5 and 5.
+ * A reader who chose another combination chose it in their EH account, which no page
+ * hands out, so what gets drawn is a default of ours.
+ */
+const STAR_COLOURS = 'RRBYY'
+
+function starColour(rating: number): string {
+  return `ehl-stars--${STAR_COLOURS[Math.ceil(rating) - 1].toLowerCase()}`
+}
+
 /** Border colours cycle so two books that sit next to each other never share one. */
 const BOOK_COLOURS = 4
 
@@ -103,7 +115,7 @@ function showPreview(thumb: string): void {
                     <span v-if="subtitle(release.hit)" class="ehl-subtitle">{{ subtitle(release.hit) }}</span>
                   </span>
                   <span class="ehl-facts">
-                    <span v-if="release.hit.rating !== null" class="ehl-stars" :title="`${release.hit.rating.toFixed(2)} / 5`">
+                    <span v-if="release.hit.rating !== null" class="ehl-stars" :class="starColour(release.hit.rating)" :title="`${release.hit.rating.toFixed(2)} / 5`">
                       <span class="ehl-stars-on" :style="{ width: `${(release.hit.rating / 5) * 100}%` }">★★★★★</span>
                       ★★★★★
                     </span>

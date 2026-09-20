@@ -497,7 +497,9 @@ function toggle(id: string): void {
   z-index: 11;
 }
 /* The cover is what gives way when the text below needs the room: the text is the
-   part a reader cannot get anywhere else in the cover view. */
+   part a reader cannot get anywhere else. A gallery carrying thirty tags can outrun
+   the card all the same, so the text block shrinks too and clips rather than spilling
+   past the viewport it is pinned to. */
 .ehl-preview img {
   min-height: 0;
   width: 100%;
@@ -505,7 +507,9 @@ function toggle(id: string): void {
   object-position: top;
 }
 .ehl-preview-text {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -513,6 +517,40 @@ function toggle(id: string): void {
   display: block;
   font-size: 11px;
   line-height: 1.25;
+}
+/* Namespaces down one column, their tags down the other. The grid sits on the
+   container and each row is `display: contents`, so every label shares one auto-sized
+   column and their colons line up; a grid per row would size each label on its own.
+   The shape is the host's own taglist: 9pt, bold chips, `1px 4px`, 5px radius. */
+.ehl-tags {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 6px;
+  align-items: start;
+  margin-top: 3px;
+  font-size: 9pt;
+}
+.ehl-tags__row {
+  display: contents;
+}
+.ehl-tags__label {
+  padding-top: 3px;
+  text-align: right;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+.ehl-tags__cells {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.ehl-tags__chip {
+  margin: 0 2px 3px;
+  padding: 1px 4px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border: 1px solid var(--ehl-border, currentColor);
+  border-radius: 5px;
+  white-space: nowrap;
 }
 /* Five outlined stars with the rated share of them filled in over the top: a
    fractional rating (`4.71`) needs a partial star, which a count of glyphs cannot

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Book, Edition, EditionFlag, EditionGroup } from '@/core/pipeline'
-import { displayTitle, settings, subtitle } from '@/settings'
+import { displayTitle, otherTitle, settings, subtitle } from '@/settings'
 import { locale, type MessageKey, t } from '@/i18n'
 import StarRating from '@/components/StarRating.vue'
+import TagList from '@/components/TagList.vue'
 
 /** Flag labels, one key each: the set is small and closed, so a table beats a branch. */
 const FLAG_LABELS: Record<EditionFlag, MessageKey> = {
@@ -31,17 +32,20 @@ function framed(book: Book): boolean {
 }
 
 /**
- * Cover of the row under the pointer, `position: fixed` so that where and how
- * big it is gets measured rather than declared.
+ * Cover, titles, facts and tags of the row under the pointer, `position: fixed` so
+ * that where and how big it is gets measured rather than declared.
  *
- * It sits beside the list, top-aligned with it, as wide as the room there allows
- * up to `PREVIEW_MAX_WIDTH`. Below `PREVIEW_MIN_WIDTH` the room is not worth
- * having, and it moves against the window's right edge and overlaps the list —
- * the one case where it hides text, and better than running off screen.
+ * It sits beside the list and is free to use the window's whole height — the list's
+ * own top no longer holds it down, because what fills the card is a tag list of any
+ * length rather than a cover. As wide as the room beside the list allows, up to
+ * `PREVIEW_MAX_WIDTH`; below `PREVIEW_MIN_WIDTH` that room is not worth having, and
+ * the card moves against the window's right edge and overlaps the list — the one case
+ * where it hides text, and better than running off screen.
  *
- * The width is also capped by the height below the list: a cover is portrait
- * (EH thumbnails run about 5:7), so a width implies a height, and `max-height`
- * catches the rare cover taller than that.
+ * The width is still capped by that height at the cover's own 5:7, which now only
+ * bites in a window under about 490px tall — enough to keep a card there from going
+ * wide and letterboxed. `max-height` rather than `height`, so a gallery carrying two
+ * tags gets a short card.
  */
 const PREVIEW_MAX_WIDTH = 340
 const PREVIEW_MIN_WIDTH = 160
@@ -57,14 +61,13 @@ function showPreview(release: Edition | null): void {
   preview.value = release
   const box = listEl.value?.getBoundingClientRect()
   if (!release || !box) return
-  const top = Math.max(GAP, box.top)
-  const height = window.innerHeight - top - GAP
+  const height = window.innerHeight - GAP * 2
   const beside = box.right + GAP
   const room = window.innerWidth - beside - GAP
   const width = Math.min(PREVIEW_MAX_WIDTH, Math.round(height / COVER_HEIGHT_OVER_WIDTH), Math.max(room, PREVIEW_MIN_WIDTH))
   previewStyle.value = {
     left: `${Math.round(room >= width ? beside : Math.max(GAP, window.innerWidth - width - GAP))}px`,
-    top: `${Math.round(top)}px`,
+    top: `${GAP}px`,
     width: `${width}px`,
     maxHeight: `${Math.round(height)}px`,
   }
@@ -150,10 +153,15 @@ function showPreview(release: Edition | null): void {
       <img v-if="preview.hit.thumb" :src="preview.hit.thumb" alt="" referrerpolicy="no-referrer" />
       <div class="ehl-preview-text">
         <span class="ehl-preview-title">{{ displayTitle(preview.hit) }}</span>
+        <!-- Both titles whatever the list setting says: the preview is where a reader
+             goes to be sure which book this is, and the other field is what separates
+             two releases whose work text reads the same. -->
+        <span v-if="otherTitle(preview.hit)" class="ehl-subtitle">{{ otherTitle(preview.hit) }}</span>
         <span class="ehl-facts">
           <StarRating v-if="preview.hit.rating !== null" :rating="preview.hit.rating" />
           <span v-for="flag in preview.flags" :key="flag" class="ehl-flag">{{ t(FLAG_LABELS[flag]) }}</span>
         </span>
+        <TagList v-if="preview.hit.tags.length > 0" :tags="preview.hit.tags" />
       </div>
     </div>
   </div>

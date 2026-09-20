@@ -55,10 +55,14 @@ export function displayTitle(gallery: { title: string; titleJpn: string }): stri
   return gallery.title || gallery.titleJpn
 }
 
-/** The other title field as a second line, or empty when the setting is off or the gallery has only one field. */
-export function subtitle(gallery: { title: string; titleJpn: string }): string {
-  if (!settings.showSubtitle) return ''
+/** The title field the current setting leaves out, or empty when the gallery has only one. */
+export function otherTitle(gallery: { title: string; titleJpn: string }): string {
   const main = displayTitle(gallery)
   const other = main === gallery.title ? gallery.titleJpn : gallery.title
   return other === main ? '' : other
+}
+
+/** The other title as a second line in a list, which is a setting; the preview always shows both. */
+export function subtitle(gallery: { title: string; titleJpn: string }): string {
+  return settings.showSubtitle ? otherTitle(gallery) : ''
 }

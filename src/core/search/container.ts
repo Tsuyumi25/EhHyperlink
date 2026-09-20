@@ -4,17 +4,24 @@ import { trigramDice } from '../rank/titleSimilarity'
 import { analyzeTitle, normalizeTitleText } from '../title/titleStructure'
 
 /**
- * Magazine / tankoubon links, both directions, for the Manga category only.
+ * Magazine / tankoubon links, both directions.
  *
  * ehwiki `Renaming` writes a single-chapter Manga as
  *   `[Artist] Title (Magazine or Tankoubon source) [Language] …`
- * so the `(context)` block of a chapter names its container, and a Manga gallery
- * without a context block may itself be one. Only the source gallery is expanded:
- * the editions it finds are never expanded into their own containers in turn.
+ * so the `(context)` block of a chapter names its container, and a gallery without
+ * a context block may itself be one. Only the source gallery is expanded: the
+ * editions it finds are never expanded into their own containers in turn.
  */
 
-/** EH category whose `(context)` block is the publication source rather than a parody. */
+/** EH category whose `(context)` block is the publication source rather than a convention. */
 export const CONTAINER_CATEGORY = 'Manga'
+
+/**
+ * `other:anthology` marks a gallery whose worth is its table of contents. Census:
+ * 6,840 galleries carry the tag, 79.3% of them Manga. `searchPlan` reads the same
+ * tag for what it does to the phrase and to the creator scope.
+ */
+export const ANTHOLOGY_TAG = 'other:anthology'
 
 /** A container hit must name the source block almost verbatim; issue numbers differ by a digit. */
 const CONTAINER_REQUIRED_SIMILARITY = 0.85
@@ -41,9 +48,21 @@ function fieldsOf(gallery: { title: string; titleJpn: string }): string[] {
   return [gallery.title, gallery.titleJpn].filter(Boolean)
 }
 
+/**
+ * Whether this gallery sits in a container chain at all.
+ *
+ * A Manga does by category: its `(context)` block holds the publication source,
+ * where a Doujinshi's holds a convention, which names no container. An anthology
+ * does by tag whatever it was filed under — the tag already says the book collects
+ * other works, so there is nothing left for the category to decide.
+ */
+function inContainerChain(source: SourceGallery): boolean {
+  return source.category === CONTAINER_CATEGORY || source.tags.includes(ANTHOLOGY_TAG)
+}
+
 /** Which phrases to search for the container and, for a container, for its chapters. `hasLetters` guards against digit-only work text. */
 export function planContainerSearch(source: SourceGallery, hasLetters: (text: string) => boolean, editionTerms: readonly string[]): ContainerPlan {
-  if (source.category !== CONTAINER_CATEGORY) return EMPTY_PLAN
+  if (!inContainerChain(source)) return EMPTY_PLAN
 
   const containerTerms: string[] = []
   const containerNames: string[] = []

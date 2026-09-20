@@ -1,5 +1,5 @@
 import { readWorkText } from '../title/chapter'
-import { type ContainerPlan, planContainerSearch } from './container'
+import { ANTHOLOGY_TAG, type ContainerPlan, planContainerSearch } from './container'
 import { fragmentsOf } from './fragment'
 import type { SourceGallery } from '../eh/galleryPage'
 import { compile, letter } from '../title/pattern'
@@ -63,19 +63,9 @@ export function creatorScope(tags: readonly string[]): string {
 const LETTER_RE = compile(letter)
 
 /**
- * `other:anthology` marks a gallery whose worth is its table of contents, and a
- * chapter cut from it names the issue verbatim — `(Work Beta -Gamma- Vol. 24)`,
- * counter and wrapper intact. Cutting the counter off the phrase would retrieve
- * every issue ever published and push this issue's own chapters off the first
- * page. Census: 6,840 galleries carry the tag, 79.3% of them Manga, 73.1% with
- * three or more artists and 21.8% with none.
- */
-const ANTHOLOGY_TAG = 'other:anthology'
-
-/**
  * Search phrases for one run of top-level text: each side of a vertical bar,
  * cut at its chapter marker, letters required. An anthology keeps the marker —
- * see `ANTHOLOGY_TAG`.
+ * see `planSearch`.
  */
 export function editionTermsOf(coreSegment: string, keepCounter = false): string[] {
   return coreSegment
@@ -127,6 +117,10 @@ function fieldTerms(value: string, keepCounter: boolean): { terms: string[]; bal
  * so a chapter marker that survived filtering can only spoil one of the two.
  */
 export function planSearch(source: SourceGallery): SearchPlan {
+  // a chapter cut from an anthology names the issue verbatim — `(Work Beta -Gamma-
+  // Vol. 24)`, counter and wrapper intact — so the phrase keeps its counter; cutting
+  // it would retrieve every issue ever published and push this issue's own chapters
+  // off the first page
   const anthology = source.tags.includes(ANTHOLOGY_TAG)
   const roman = source.title ? fieldTerms(source.title, anthology) : { terms: [], balanced: true }
   const japanese = source.titleJpn ? fieldTerms(source.titleJpn, anthology) : { terms: [], balanced: true }
@@ -145,7 +139,11 @@ export function planSearch(source: SourceGallery): SearchPlan {
   // match a segment, and every chapter term would be sent twice
   return {
     editionTerms,
-    scope: sole ?? creatorScope(source.tags),
+    // an anthology's creator tags name everyone the issue collected, and a search
+    // accepts five name + tag inclusions at most (ehwiki `Gallery_Searching`, Search
+    // Limitations) — past that it returns nothing rather than narrowing further. The
+    // issue name is exact enough to search on its own.
+    scope: anthology ? '' : (sole ?? creatorScope(source.tags)),
     fixedRange: sole !== null && slices.length > 0,
     ...planContainerSearch(source, (text) => LETTER_RE.test(text), phrases),
   }

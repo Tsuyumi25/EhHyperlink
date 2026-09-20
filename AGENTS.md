@@ -61,6 +61,29 @@ We are a guest on someone else's document:
   painted background and border into `--ehl-bg` / `--ehl-border` so the box
   is opaque on both the light and the dark site.
 
+## Readability
+
+The next person to read a line matters more here than anything that line saves.
+Two shapes are banned outright:
+
+- **A condition that joins clauses.** An `&&` or `||` between two clauses, and
+  above all a negated one, gets extracted into a predicate named for what it
+  decides (Fowler, *Decompose Conditional*).
+  `source.category !== CONTAINER_CATEGORY && !source.tags.includes(ANTHOLOGY_TAG)`
+  makes the reader apply De Morgan to find out it means "not a Manga and not an
+  anthology"; `inContainerChain(source)` states it. The predicate's doc comment
+  is where the domain reason for each clause belongs — one clause is a category
+  convention, the other is a tag, and the condition alone cannot say that.
+  A predicate earns its name by joining clauses; wrapping one call does not.
+  `source.tags.includes(ANTHOLOGY_TAG)` already reads as itself.
+- **A boolean parameter**, and any parameter the callee can derive from what it
+  already has. `planContainerSearch(source, hasLetters, terms, true)` tells the
+  call site nothing, and `source` was already carrying the tag that `true` stood
+  for.
+
+The regex policy below is this same rule with a whole file's worth of syntax
+behind it.
+
 ## Regex policy
 
 - Regex syntax is written in exactly one file, `src/core/title/pattern.ts`.

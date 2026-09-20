@@ -287,6 +287,10 @@ describe('search planning', () => {
     // the container plan skips what the edition terms already send
     expect(plan.chapterTerms).toEqual([])
     expect(plan.fixedRange).toBe(false)
+    // every artist the issue collected would be one OR clause, and a search takes
+    // five name + tag inclusions at most
+    expect(plan.scope).toBe('')
+    expect(planSearch({ ...anthology, tags: shared.tags }).scope).toBe('~a:"artistalpha$" ~a:"artistbeta$"')
 
     // without the tag the counter goes, so the phrase reaches the other issues
     expect(planSearch({ ...anthology, tags: shared.tags }).editionTerms).toEqual(['Work Beta -Gamma Delta'])

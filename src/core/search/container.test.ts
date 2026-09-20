@@ -26,6 +26,12 @@ describe('container planning', () => {
     expect(planContainerSearch({ ...manga, category: 'Doujinshi', title: '[Artist] Work Title (Series Beta)' }, hasLetters, []).isContainerCandidate).toBe(false)
   })
 
+  it('plans a Doujinshi anthology all the same: the tag says what the book is, not the category', () => {
+    const doujin = { ...manga, category: 'Doujinshi', title: 'Work Beta -Gamma Delta- Vol. 24', tags: ['other:anthology'] }
+    expect(planContainerSearch(doujin, hasLetters, []).chapterTerms).toEqual(['Work Beta -Gamma Delta- Vol. 24'])
+    expect(planSearch(doujin).isContainerCandidate).toBe(true)
+  })
+
   it('searches the container in both title fields and treats a context-free Manga as a container candidate', () => {
     const chapter = planSearch({ ...manga, title: '[Artist Alpha] Work Beta (COMIC Alphabeta Monthly Vol. 18) [English]', titleJpn: '[作者甲] 作品乙 (コミック甲 Vol.18) [英訳]' })
     expect(chapter.containerTerms).toEqual(['COMIC Alphabeta Monthly Vol. 18', 'コミック甲 Vol.18'])

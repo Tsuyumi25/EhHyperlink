@@ -48,6 +48,9 @@ const MESSAGES = {
   titleRomanized: { en: 'Romanized', zh: '英文／羅馬字', ja: 'ローマ字' },
   titleJapanese: { en: 'Japanese', zh: '日文', ja: '日本語' },
   settingSubtitle: { en: 'Show subtitle', zh: '顯示副標題', ja: '副題を表示' },
+  settingView: { en: 'View', zh: '檢視', ja: '表示' },
+  viewList: { en: 'List', zh: '清單', ja: 'リスト' },
+  viewCovers: { en: 'Covers', zh: '封面', ja: '表紙' },
 } as const
 
 export type MessageKey = keyof typeof MESSAGES

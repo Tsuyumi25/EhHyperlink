@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { Book, EditionFlag, EditionGroup } from '@/core/pipeline'
-import { displayTitle, subtitle } from '@/settings'
+import type { Book, Edition, EditionFlag, EditionGroup } from '@/core/pipeline'
+import { displayTitle, settings, subtitle } from '@/settings'
 import { locale, type MessageKey, t } from '@/i18n'
+import StarRating from '@/components/StarRating.vue'
 
 /** Flag labels, one key each: the set is small and closed, so a table beats a branch. */
 const FLAG_LABELS: Record<EditionFlag, MessageKey> = {
@@ -15,18 +16,6 @@ defineProps<{ groups: EditionGroup[]; showScore: boolean }>()
 
 function percent(score: number): string {
   return `${Math.round(score * 100)}%`
-}
-
-/**
- * EH tints a gallery's stars by where its rating lands, one letter per landing
- * position: its own `RRGGB` reads as red up to 2, green through 4, blue at 4.5 and 5.
- * A reader who chose another combination chose it in their EH account, which no page
- * hands out, so what gets drawn is a default of ours.
- */
-const STAR_COLOURS = 'RRBYY'
-
-function starColour(rating: number): string {
-  return `ehl-stars--${STAR_COLOURS[Math.ceil(rating) - 1].toLowerCase()}`
 }
 
 /** Border colours cycle so two books that sit next to each other never share one. */
@@ -60,13 +49,14 @@ const COVER_HEIGHT_OVER_WIDTH = 7 / 5
 const GAP = 8
 
 const listEl = ref<HTMLElement | null>(null)
-const preview = ref('')
+const preview = ref<Edition | null>(null)
 const previewStyle = ref<Record<string, string>>({})
 
-function showPreview(thumb: string): void {
-  preview.value = thumb
+/** The row or cover under the pointer, `null` on the way out. */
+function showPreview(release: Edition | null): void {
+  preview.value = release
   const box = listEl.value?.getBoundingClientRect()
-  if (!thumb || !box) return
+  if (!release || !box) return
   const top = Math.max(GAP, box.top)
   const height = window.innerHeight - top - GAP
   const beside = box.right + GAP
@@ -89,14 +79,40 @@ function showPreview(thumb: string): void {
         {{ group.language.name[locale] }}
         <span class="ehl-count">{{ group.books.length }}</span>
       </h4>
-      <ul>
+      <!-- A cell says everything a row says except the name, which is the one thing
+           that needs a line of its own; that goes to the preview. Releases of one book
+           stay adjacent here because that is the order the books hand them over in,
+           but they carry no frame: a grid cell has no room for one. -->
+      <div v-if="settings.view === 'covers'" class="ehl-covers">
+        <a
+          v-for="release in group.books.flatMap((book) => book.releases)"
+          :key="release.hit.gid"
+          class="ehl-cover"
+          :href="release.hit.href"
+          target="_blank"
+          rel="noopener"
+          @mouseenter="showPreview(release)"
+          @mouseleave="showPreview(null)"
+        >
+          <span class="ehl-cover-art">
+            <img v-if="release.hit.thumb" :src="release.hit.thumb" loading="lazy" decoding="async" fetchpriority="low" referrerpolicy="no-referrer" alt="" />
+          </span>
+          <span class="ehl-facts">
+            <StarRating v-if="release.hit.rating !== null" :rating="release.hit.rating" />
+            <span v-if="showScore" class="ehl-meta">{{ percent(release.score) }}</span>
+            <span v-if="release.hit.pages !== null" class="ehl-meta">{{ release.hit.pages }}{{ t('pages') }}</span>
+            <span v-for="flag in release.flags" :key="flag" class="ehl-flag">{{ t(FLAG_LABELS[flag]) }}</span>
+          </span>
+        </a>
+      </div>
+      <ul v-else>
         <li
           v-for="(book, index) in group.books"
           :key="book.releases[0].hit.gid"
           :class="framed(book) ? `ehl-book ehl-book--${index % BOOK_COLOURS}` : 'ehl-books'"
         >
           <ul>
-            <li v-for="release in book.releases" :key="release.hit.gid" class="ehl-row" @mouseenter="showPreview(release.hit.thumb)" @mouseleave="showPreview('')">
+            <li v-for="release in book.releases" :key="release.hit.gid" class="ehl-row" @mouseenter="showPreview(release)" @mouseleave="showPreview(null)">
               <!-- One link over the whole row: a reader aiming at the rating or the page
                    count is aiming at the gallery, and a row that only answers on its title
                    line reads as if the rest belongs to something else. The price is that
@@ -115,10 +131,7 @@ function showPreview(thumb: string): void {
                     <span v-if="subtitle(release.hit)" class="ehl-subtitle">{{ subtitle(release.hit) }}</span>
                   </span>
                   <span class="ehl-facts">
-                    <span v-if="release.hit.rating !== null" class="ehl-stars" :class="starColour(release.hit.rating)" :title="`${release.hit.rating.toFixed(2)} / 5`">
-                      <span class="ehl-stars-on" :style="{ width: `${(release.hit.rating / 5) * 100}%` }">★★★★★</span>
-                      ★★★★★
-                    </span>
+                    <StarRating v-if="release.hit.rating !== null" :rating="release.hit.rating" />
                     <span v-if="showScore" class="ehl-meta">{{ percent(release.score) }}</span>
                     <span v-if="release.hit.pages !== null" class="ehl-meta">{{ release.hit.pages }}{{ t('pages') }}</span>
                     <span v-for="flag in release.flags" :key="flag" class="ehl-flag">{{ t(FLAG_LABELS[flag]) }}</span>
@@ -130,6 +143,18 @@ function showPreview(thumb: string): void {
         </li>
       </ul>
     </section>
-    <img v-if="preview" class="ehl-preview" :src="preview" :style="previewStyle" alt="" referrerpolicy="no-referrer" />
+    <!-- One preview for both views, pinned to the viewport so it stays in one place
+         while the list scrolls under the pointer. It names the gallery, which is what
+         a cover on its own cannot. -->
+    <div v-if="preview" class="ehl-preview" :style="previewStyle">
+      <img v-if="preview.hit.thumb" :src="preview.hit.thumb" alt="" referrerpolicy="no-referrer" />
+      <div class="ehl-preview-text">
+        <span class="ehl-preview-title">{{ displayTitle(preview.hit) }}</span>
+        <span class="ehl-facts">
+          <StarRating v-if="preview.hit.rating !== null" :rating="preview.hit.rating" />
+          <span v-for="flag in preview.flags" :key="flag" class="ehl-flag">{{ t(FLAG_LABELS[flag]) }}</span>
+        </span>
+      </div>
+    </div>
   </div>
 </template>

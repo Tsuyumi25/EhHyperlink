@@ -290,6 +290,9 @@ function toggle(id: string): void {
    It overlaps the top of `.gm`, whose columns are stacking contexts of their own
    (`#gleft` 1, `#gmid` / `#gd2` 2, ehs `#gright` 3), so it needs a higher index. */
 .ehl-list {
+  /* How big a cover is, in both views. In `em` so the host page's font size and a
+     reader's own zoom of it move the covers the same way they move the titles. */
+  --ehl-cover-h: 10em;
   display: none;
   position: absolute;
   top: 100%;
@@ -379,14 +382,11 @@ function toggle(id: string): void {
 .ehl-list li.ehl-row {
   padding: 0;
 }
-/* One hit area over the cover, the title and the facts. `min-height` levels the rows,
-   and it is set by how big a cover has to be to be recognisable rather than by how
-   tall the text is — past five lines of text the floor is the taller of the two, so
-   every row reaches it, nothing has to be measured, and no row hands its own cover a
-   different size. It is stated in `em` so the host page's font size and a reader's own
-   zoom of it move the covers the same way they move the titles. */
+/* One hit area over the cover, the title and the facts. `min-height` levels the rows
+   at the cover's height: past five lines of text the floor is the taller of the two,
+   so every row reaches it, nothing has to be measured, and no row hands its own cover
+   a different size. */
 .ehl-rowlink {
-  --ehl-cover-h: 10em;
   display: flex;
   align-items: stretch;
   gap: 6px;
@@ -415,7 +415,8 @@ function toggle(id: string): void {
    of flow, because a replaced element in flow brings its own intrinsic height and
    would set the flex line's height rather than follow it. Top edge, centred, so the
    slack a cover with a different ratio leaves all ends up at the bottom. */
-.ehl-thumb img {
+.ehl-thumb img,
+.ehl-cover-art img {
   position: absolute;
   top: 0;
   left: 50%;
@@ -425,6 +426,32 @@ function toggle(id: string): void {
   max-height: 100%;
   border: 1px solid var(--ehl-border, currentColor);
   border-radius: 2px;
+}
+/* Six to a row: the panel is `width: max-content`, so `auto-fill` would read every
+   cover's contribution and lay the whole group out on one line. Six of them plus the
+   panel's own padding stay inside the 720px column the bar is aligned to. */
+.ehl-covers {
+  display: grid;
+  grid-template-columns: repeat(6, calc(var(--ehl-cover-h) * 5 / 7));
+  gap: 4px;
+}
+/* A cell stacks the cover over the same facts line a row carries. Grid items stretch,
+   so cells in one row stay the same height however many lines of flags they wrap to. */
+.ehl-cover {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* Same frame as a row's cover, on its own rather than beside text. */
+.ehl-cover-art {
+  position: relative;
+  flex: 0 0 auto;
+  height: var(--ehl-cover-h);
+}
+/* The grid has no other way to say which cover the name in the preview belongs to. */
+.ehl-cover:hover .ehl-cover-art img {
+  border-color: currentColor;
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 30%, transparent);
 }
 /* A row stacks: the title takes as many lines as it needs, everything else goes under
    it. `min-width: 0` because a flex item defaults to `auto` and would refuse to let
@@ -450,22 +477,42 @@ function toggle(id: string): void {
 .ehl-facts > :first-child {
   margin-left: 0;
 }
-/* One cover, in one place: the row under the pointer fills it. Pinned to the
-   viewport because the popover's own right edge runs off screen on a narrow
-   window; `left` / `top` / `max-*` are measured in `GroupList`, which puts it
-   beside the list when there is room. `pointer-events: none` keeps it from
-   stealing the hover that feeds it. */
+/* One cover, in one place: the row or grid cell under the pointer fills it. Pinned to
+   the viewport, so it stays put while the grid scrolls under the pointer and its own
+   right edge cannot run off a narrow window; `left` / `top` / `max-*` are measured in
+   `GroupList`, which puts it beside the list when there is room. `pointer-events:
+   none` keeps it from stealing the hover that feeds it. */
 .ehl-preview {
   position: fixed;
-  display: block;
-  height: auto;
-  object-fit: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  padding: 5px;
   border: 1px solid var(--ehl-border, currentColor);
   border-radius: 4px;
   background: var(--ehl-bg, #fff);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   z-index: 11;
+}
+/* The cover is what gives way when the text below needs the room: the text is the
+   part a reader cannot get anywhere else in the cover view. */
+.ehl-preview img {
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+  object-position: top;
+}
+.ehl-preview-text {
+  flex: 0 0 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ehl-preview-title {
+  display: block;
+  font-size: 11px;
+  line-height: 1.25;
 }
 /* Five outlined stars with the rated share of them filled in over the top: a
    fractional rating (`4.71`) needs a partial star, which a count of glyphs cannot

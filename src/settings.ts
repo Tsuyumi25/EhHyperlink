@@ -7,20 +7,29 @@ const STORAGE_KEY = 'ehl_settings_v1'
 export const TITLE_LANGUAGES = ['romanized', 'japanese'] as const
 export type TitleLanguage = (typeof TITLE_LANGUAGES)[number]
 
+/** Rows that each carry their own title, or covers alone with one place for the hovered name. */
+export const VIEWS = ['list', 'covers'] as const
+export type View = (typeof VIEWS)[number]
+
 export interface Settings {
   titleLanguage: TitleLanguage
   /** show the other title field under the main one when a gallery has both */
   showSubtitle: boolean
+  view: View
 }
 
 // Romanized reads as one line on every locale, and the second line is what tells
 // two releases of one book apart when the work text is identical.
-const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: true }
+const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: true, view: 'list' }
 
 export const settings = reactive<Settings>({ ...INITIAL })
 
 function isTitleLanguage(value: unknown): value is TitleLanguage {
   return typeof value === 'string' && (TITLE_LANGUAGES as readonly string[]).includes(value)
+}
+
+function isView(value: unknown): value is View {
+  return typeof value === 'string' && (VIEWS as readonly string[]).includes(value)
 }
 
 export async function loadSettings(): Promise<void> {
@@ -31,6 +40,7 @@ export async function loadSettings(): Promise<void> {
       if (typeof parsed === 'object' && parsed !== null) {
         if ('titleLanguage' in parsed && isTitleLanguage(parsed.titleLanguage)) settings.titleLanguage = parsed.titleLanguage
         if ('showSubtitle' in parsed && typeof parsed.showSubtitle === 'boolean') settings.showSubtitle = parsed.showSubtitle
+        if ('view' in parsed && isView(parsed.view)) settings.view = parsed.view
       }
     } catch {
       // unreadable payload: keep defaults, the next save overwrites it

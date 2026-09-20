@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
-import { settings, TITLE_LANGUAGES, type TitleLanguage } from '@/settings'
+import { settings, TITLE_LANGUAGES, type TitleLanguage, VIEWS, type View } from '@/settings'
 
 const LABEL_KEY: Record<TitleLanguage, 'titleRomanized' | 'titleJapanese'> = {
   romanized: 'titleRomanized',
   japanese: 'titleJapanese',
+}
+
+const VIEW_KEY: Record<View, 'viewList' | 'viewCovers'> = {
+  list: 'viewList',
+  covers: 'viewCovers',
 }
 </script>
 
@@ -15,6 +20,13 @@ const LABEL_KEY: Record<TitleLanguage, 'titleRomanized' | 'titleJapanese'> = {
       <label v-for="language in TITLE_LANGUAGES" :key="language" class="ehl-settings__option">
         <input v-model="settings.titleLanguage" type="radio" name="ehl-title-language" :value="language" />
         {{ t(LABEL_KEY[language]) }}
+      </label>
+    </div>
+    <div class="ehl-settings__row">
+      <span class="ehl-settings__label">{{ t('settingView') }}</span>
+      <label v-for="view in VIEWS" :key="view" class="ehl-settings__option">
+        <input v-model="settings.view" type="radio" name="ehl-view" :value="view" />
+        {{ t(VIEW_KEY[view]) }}
       </label>
     </div>
     <label class="ehl-settings__row ehl-settings__option">

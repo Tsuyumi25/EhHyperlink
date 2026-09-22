@@ -29,6 +29,7 @@ async function run(force: boolean): Promise<void> {
     const found = await findEditions(gallery, location.origin, LANGUAGE_PRIORITY[locale], {
       force,
       onProgress: (next) => (progress.value = next),
+      onResult: (next) => (result.value = next),
     })
     result.value = found
     state.value = found.plan.editionTerms.length === 0 && found.plan.containerTerms.length === 0 ? 'noTitle' : 'done'

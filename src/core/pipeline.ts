@@ -42,6 +42,8 @@ export interface FindOptions {
   /** ignore cached responses and overwrite them; the refetch button asks for this */
   force?: boolean
   onProgress?: (progress: SearchProgress) => void
+  /** 原刊完成時先交付；完整結果仍由回傳的 Promise 提供。 */
+  onResult?: (result: JumpResult) => void
 }
 
 /**
@@ -53,7 +55,7 @@ export async function findEditions(
   source: SourceGallery,
   origin: string,
   priority: readonly string[],
-  { force = false, onProgress }: FindOptions = {},
+  { force = false, onProgress, onResult }: FindOptions = {},
 ): Promise<JumpResult> {
   const plan = planSearch(source)
   // stale entries from an earlier build or an expired day; nothing waits on it
@@ -66,18 +68,39 @@ export async function findEditions(
   // from inside a `Promise.all` would send the whole batch at once.
   let done = 0
   let total = plan.editionTerms.length + plan.containerTerms.length
+  const requests: SentRequest[] = []
   const search = async (terms: readonly string[]): Promise<SearchResponse[]> => {
     const pages: SearchResponse[] = []
     for (const term of terms) {
-      pages.push(await fetchSearch(origin, term, plan.scope, force))
+      const page = await fetchSearch(origin, term, plan.scope, force)
+      pages.push(page)
+      requests.push(page.request)
       done += 1
       onProgress?.({ done, total })
     }
     return pages
   }
   onProgress?.({ done, total })
-  const editionPages = await search(plan.editionTerms)
   const containerPages = await search(plan.containerTerms)
+  const containerHits = dedupe(containerPages.flatMap((page) => page.hits), source.gid)
+  const containerMeta = await fetchGalleryMetadata(containerHits.map(({ gid, token }) => ({ gid, token })), force)
+  const metadata = containerMeta.metadata
+  requests.push(...containerMeta.requests)
+  const containers = matchContainers(plan.containerNames, enrichHits(containerHits, metadata))
+  if (plan.containerTerms.length > 0) {
+    onResult?.({
+      plan,
+      requests: [...requests],
+      metadataFromCache: containerMeta.fromCache,
+      dataAt: Math.min(containerMeta.oldestAt, ...containerPages.map((page) => page.at)),
+      editions: [],
+      series: [],
+      related: [],
+      chapters: [],
+      containers,
+    })
+  }
+  const editionPages = await search(plan.editionTerms)
 
   /**
    * Chapter phrases are an edition phrase plus a counter, so their result set is
@@ -100,11 +123,12 @@ export async function findEditions(
   }
 
   const candidates = dedupe([...editionPages, ...chapterPages].flatMap((page) => page.hits), source.gid)
-  const containerHits = dedupe(containerPages.flatMap((page) => page.hits), source.gid)
-  const meta = await fetchGalleryMetadata([...candidates, ...containerHits].map(({ gid, token }) => ({ gid, token })), force)
-  const { metadata, requests: metadataRequests, fromCache: metadataFromCache } = meta
-  const searchPages = [...editionPages, ...containerPages, ...chapterPages]
-  const requests: SentRequest[] = [...searchPages.map((page) => page.request), ...metadataRequests]
+  const missing = candidates.filter((candidate) => !metadata.has(candidate.gid))
+  const meta = await fetchGalleryMetadata(missing.map(({ gid, token }) => ({ gid, token })), force)
+  for (const [gid, entry] of meta.metadata) metadata.set(gid, entry)
+  requests.push(...meta.requests)
+  const metadataFromCache = containerMeta.fromCache + meta.fromCache
+  const searchPages = [...containerPages, ...editionPages, ...chapterPages]
   const enriched = enrichHits(candidates, metadata)
 
   const chapters = plan.isContainerCandidate ? matchExtractedChapters(source, enriched) : []
@@ -112,7 +136,7 @@ export async function findEditions(
   const { editions, series, related } = scoreEditions(source, enriched.filter((hit) => !chapterGids.has(hit.gid)), plan.fixedRange)
 
   // the oldest response in this result: what the reader is actually looking at
-  const dataAt = Math.min(meta.oldestAt, ...searchPages.map((page) => page.at))
+  const dataAt = Math.min(containerMeta.oldestAt, meta.oldestAt, ...searchPages.map((page) => page.at))
 
   return {
     plan,
@@ -123,6 +147,6 @@ export async function findEditions(
     series: groupByLanguage(series, priority),
     related: groupByLanguage(related, priority),
     chapters: groupByLanguage(chapters.map((hit) => toEdition(hit, 1)), priority),
-    containers: matchContainers(plan.containerNames, enrichHits(containerHits, metadata)),
+    containers,
   }
 }

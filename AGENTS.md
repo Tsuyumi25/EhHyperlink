@@ -100,10 +100,20 @@ behind it.
 - Domain vocabulary (markers, sequel words, chapter labels) lives in tables
   and arrays, never inside a pattern string.
 
-## Public repository — no real works
+## Public repository — synthetic corpus with explained cases
 
-Treat commit messages, comments, README, tests and fixtures as permanent.
-Quoting a real gallery here would tie the project to that work, so:
+The corpus describes title rules and their boundaries. Organizing cases by
+rule and explaining expected outcomes lets maintainers compare cases,
+identify the conditions that matter, and check for missing scenarios.
+
+Consistent fictional stand-ins make creator, work and publication roles easy
+to recognize and let cases vary one condition while holding the others
+constant. Cases derived from real observations must preserve the structural
+and textual features that affect behavior. Replacing names alone does not
+increase test coverage.
+
+Use these stand-ins consistently across tests, fixtures, comments, README
+and commit messages:
 
 - **No real gallery titles, circle names, artist names or gids** anywhere in
   the repo. Tests use invented stand-ins (`Circle Alpha`, `Work Beta`,
@@ -115,13 +125,29 @@ Quoting a real gallery here would tie the project to that work, so:
   and category / namespace names are fine; they are not works.
 - No concrete tag values as examples beyond the namespace prefixes
   (`artist:`, `language:`, `other:rough translation`).
+- Turn observed title and relationship cases into synthetic examples in
+  `src/core/corpus/`. Preserve the structure that causes the behavior:
+  brackets, markers, character classes, and any lengths or shared text that
+  affect slicing or similarity. Keep real names and gallery identifiers out
+  of both the sample and its explanation.
+- Every case or group of cases must have a preceding comment explaining
+  the rule being exercised and why the expected outcome follows. A shared
+  explanation can cover adjacent cases of the same rule; explain separately
+  when a case exercises a different boundary.
+- Put title parsing and whole-phrase search planning in `wholePhrase.test.ts`,
+  single-creator fragment search planning in `fixedRange.test.ts`, and result
+  classification, grouping and ordering in `results.test.ts`. The container
+  branch's planning and matching cases belong in `container.test.ts`.
+- Write cases as standalone `operation(input).expect(expected)` calls, with
+  blank lines and explanatory comments between groups. Do not wrap the cases
+  in a shared array. Every `hit` / `hits` candidate must explicitly carry its
+  synthetic `gid`, so expected results refer directly to visible input data.
 
 ## Language
 
 - Identifiers, file names, type names: English.
-- Comments: Traditional Chinese or English, nothing else. Write one only
-  when the WHY is non-obvious; host-page quirks and corpus numbers count as
-  WHY.
+- Comments: Traditional Chinese or English, nothing else. Explain the WHY;
+  host-page quirks, corpus numbers and corpus case expectations count as WHY.
 - Commit messages: Traditional Chinese, `type(scope): effect`. The subject
   states the effect, not the action; a body only for a real WHY.
 - User-facing strings: through `src/i18n.ts` (en / zh / ja). A new key goes
@@ -140,9 +166,9 @@ Quoting a real gallery here would tie the project to that work, so:
   → group. No title logic here; add a module and call it.
 - `src/settings.ts`, `src/components/` — settings store, badges, lists,
   settings popup
-- Tests sit next to the module they cover. Pure functions get unit tests;
-  the live site is checked by hand with a built script injected into a
-  headless tab.
+- Title and relationship tests live in `src/core/corpus/` under the rules
+  above. Other tests sit next to the module they cover. The live site is
+  checked by hand with a built script injected into a headless tab.
 
 ## Setup
 

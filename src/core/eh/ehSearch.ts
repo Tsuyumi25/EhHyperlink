@@ -35,26 +35,12 @@ export interface SearchResponse {
   at: number
 }
 
-/**
- * One request's query: one work phrase, qualified, plus the creator scope.
- *
- * `title:` earns its place twice. A bare phrase is matched against tags as well
- * as titles (ehwiki `Gallery_Searching`), and a work phrase that happens to
- * equal a popular tag then fills the 25-row first page with unrelated galleries
- * — corpus run: 4.4% of phrases collide with a tag value, and qualifying them
- * puts 16.5% more real hits back on the first page.
- *
- * One phrase per request, always. `~` reads as OR for tag terms only: mixed into
- * a tag OR group EH rejects the query outright, and `~title:"a" ~title:"b"` is
- * accepted yet behaves as AND. Measured live: `title:"a"` alone returned 11
- * galleries, `title:"b"` 4, `title:"c"` 1, and `~title:"a" ~title:"b"
- * ~title:"c"` returned that same 1 — the intersection, not the union. Riding
- * phrases together would therefore drop 35.3% of the editions and series this
- * finds and leave 13.8% of galleries with nothing at all.
- */
-export function searchUrl(origin: string, term: string, scope = ''): string {
-  const query = scope ? `title:"${term}" ${scope}` : `title:"${term}"`
-  return `${origin}/?f_cats=0&f_search=${encodeURIComponent(query)}`
+export type SearchVisibility = 'published' | 'expunged'
+
+/** `f_cats=0` 避免沿用帳號隱藏的分類；搜尋領域也納入 URL 快取鍵。 */
+export function searchUrl(origin: string, query: string, visibility: SearchVisibility = 'published'): string {
+  const expunged = visibility === 'expunged' ? '&f_sh=on' : ''
+  return `${origin}/?f_cats=0${expunged}&f_search=${encodeURIComponent(query)}`
 }
 
 /**
@@ -112,14 +98,14 @@ export function parseSearchResults(html: string): SearchHit[] {
  * `force` skips the read and overwrites the entry — the refetch button asks for
  * that, and nothing else should.
  */
-export async function fetchSearch(origin: string, term: string, scope = '', force = false): Promise<SearchResponse> {
-  const url = searchUrl(origin, term, scope)
+export async function fetchSearch(origin: string, query: string, visibility: SearchVisibility = 'published', force = false): Promise<SearchResponse> {
+  const url = searchUrl(origin, query, visibility)
   const cached = force ? null : await cacheGet<SearchHit[]>(url)
-  if (cached) return { request: { kind: 'search', url, term, cached: true }, hits: cached.data, at: cached.at }
+  if (cached) return { request: { kind: 'search', url, term: query, cached: true }, hits: cached.data, at: cached.at }
   await searchThrottle.next()
   const response = await fetch(url, { credentials: 'same-origin' })
   if (!response.ok) throw new Error(`search failed: HTTP ${response.status}`)
   const hits = parseSearchResults(await response.text())
   await cacheSet(url, hits)
-  return { request: { kind: 'search', url, term }, hits, at: Date.now() }
+  return { request: { kind: 'search', url, term: query }, hits, at: Date.now() }
 }

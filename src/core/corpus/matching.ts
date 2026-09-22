@@ -8,6 +8,7 @@ import type { GalleryMetadata } from '../eh/ehApi'
 import { matchExtractedChapters } from '../search/container'
 import { planSearch } from '../search/searchPlan'
 import type { SearchHit } from '../eh/ehSearch'
+import { selectDiscoveries } from '../search/discovery'
 
 export interface HitInput {
   gid: number
@@ -36,10 +37,11 @@ export function hit(fields: HitInput): SearchHit {
   }
 }
 
-/** Where a score sits against the acceptance threshold. */
-export type ScoreVerdict = 'match' | 'below'
+/** Where a score sits against the acceptance threshold, or that nothing scored the row. */
+export type ScoreVerdict = 'match' | 'below' | 'unscored'
 
-function scoreVerdict(score: number): ScoreVerdict {
+function scoreVerdict(score: number | null): ScoreVerdict {
+  if (score === null) return 'unscored'
   if (score >= SIMILARITY_THRESHOLD) return 'match'
   if (score < SIMILARITY_THRESHOLD) return 'below'
   throw new Error(`Invalid similarity score: ${score}`)
@@ -100,14 +102,22 @@ export interface Relations {
   related: number[]
 }
 
-/** The classification the pipeline runs: plan the search, take the chapters out, score what is left on the planned route. */
+/**
+ * The classification the pipeline runs: plan the search, then either take the
+ * chapters out and score what is left on the planned route, or — when the plan
+ * went straight at a tag — keep what came back unscored.
+ */
 function classify({ source, hits }: RelationsInput): ScoredHits {
   const gallerySource = gallery(source)
   const plan = planSearch(gallerySource)
-  const candidates = dedupe(hits.map(hit), gallerySource.gid)
-  const chapters = plan.isContainerCandidate ? matchExtractedChapters(gallerySource, candidates) : []
+  const candidates = hits.map(hit)
+  if (plan.mode !== 'work') {
+    return { editions: [], series: [], related: selectDiscoveries(gallerySource, candidates).map((discovery) => toEdition(discovery, null)) }
+  }
+  const unique = dedupe(candidates, gallerySource.gid)
+  const chapters = plan.isContainerCandidate ? matchExtractedChapters(gallerySource, unique) : []
   const chapterGids = new Set(chapters.map((chapter) => chapter.gid))
-  return scoreEditions(gallerySource, candidates.filter((candidate) => !chapterGids.has(candidate.gid)), plan.fixedRange)
+  return scoreEditions(gallerySource, unique.filter((candidate) => !chapterGids.has(candidate.gid)), plan.fixedRange)
 }
 
 function gidsOf(editions: readonly Edition[]): number[] {

@@ -11,7 +11,7 @@ Requires [Tampermonkey](https://www.tampermonkey.net/) or a compatible userscrip
 - [ ] Sleazy Fork
 - [ ] GitHub Releases
 
-Until a release exists: `pnpm build` and install `dist/eh-hyper-link.user.js`.
+Until a release exists: `pnpm build` and install `dist/eh-hyperlink.user.js`.
 
 ## Development
 

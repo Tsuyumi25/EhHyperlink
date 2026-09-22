@@ -2,13 +2,19 @@ import { readWorkText } from '../title/chapter'
 import { ANTHOLOGY_TAG, type ContainerPlan, planContainerSearch } from './container'
 import { fragmentsOf } from './fragment'
 import type { SourceGallery } from '../eh/galleryPage'
+import type { SearchVisibility } from '../eh/ehSearch'
 import { compile, letter } from '../title/pattern'
 import { analyzeTitle, TITLE_BAR } from '../title/titleStructure'
 
+export type SearchMode = 'work' | 'cosplayer' | 'realporn'
+
 export interface SearchPlan extends ContainerPlan {
-  /** quoted-phrase terms that retrieve other editions and chapters of the same work */
+  mode: SearchMode
+  /** which domain the request goes to; `expunged` also carries the realporn tag — see `queryOf` */
+  visibility: SearchVisibility
+  /** one search each: a quoted work phrase in `work` and `realporn`, a complete exact tag clause in `cosplayer` */
   editionTerms: string[]
-  /** creator clause appended to every phrase search; empty when the gallery carries no creator tag */
+  /** creator clause appended to every phrase search; empty when the gallery carries no creator tag, and always empty in a direct mode */
   scope: string
   /**
    * True when `scope` names one creator and the terms are slices of this
@@ -60,6 +66,22 @@ export function creatorScope(tags: readonly string[]): string {
   return clauses.map((clause) => `~${clause}`).join(' ')
 }
 
+const COSPLAYER_PREFIX = 'cosplayer:'
+
+export function cosplayerTags(tags: readonly string[]): string[] {
+  const names: string[] = []
+  for (const tag of tags) {
+    if (!tag.startsWith(COSPLAYER_PREFIX)) continue
+    const name = tag.slice(COSPLAYER_PREFIX.length).replaceAll('_', ' ')
+    if (!name) continue
+    if (!names.includes(name)) names.push(name)
+  }
+  return names
+}
+
+const REALPORN_TAG = 'other:realporn'
+const REALPORN_CLAUSE = 'other:"realporn$"'
+
 const LETTER_RE = compile(letter)
 
 /**
@@ -81,7 +103,7 @@ export function editionTermsOf(coreSegment: string, keepCounter = false): string
  * all. A whole-phrase search survives that; a two-character slice taken from it
  * searches for a fragment of the translation group's name.
  */
-function fieldTerms(value: string, keepCounter: boolean): { terms: string[]; balanced: boolean } {
+function fieldTerms(value: string, keepCounter: boolean): FieldTerms {
   const parts = analyzeTitle(value)
   const terms: string[] = []
   for (const segment of parts.coreSegments) {
@@ -89,12 +111,13 @@ function fieldTerms(value: string, keepCounter: boolean): { terms: string[]; bal
       if (!terms.includes(term)) terms.push(term)
     }
   }
-  return { terms, balanced: parts.balanced }
+  return { terms, identityBlocks: parts.identityBlocks, balanced: parts.balanced }
 }
 
 /**
  * Editions are searched by the unwrapped work text of each title field; Manga
- * adds the container plan.
+ * adds the container plan. A gallery that names people rather than a work is
+ * planned before any of that — see the two direct modes below.
  *
  * With one creator the scope already pins the search to that person's shelf, so
  * the phrases are cut down to two short slices (`fragment.ts`) and the run costs
@@ -117,13 +140,22 @@ function fieldTerms(value: string, keepCounter: boolean): { terms: string[]; bal
  * so a chapter marker that survived filtering can only spoil one of the two.
  */
 export function planSearch(source: SourceGallery): SearchPlan {
+  const visibility = source.tags.includes(REALPORN_TAG) ? 'expunged' : 'published'
+  const cosplayers = cosplayerTags(source.tags)
+  if (cosplayers.length > 0) {
+    return directPlan('cosplayer', cosplayers.map((name) => `${COSPLAYER_PREFIX}"${name}$"`), visibility)
+  }
   // a chapter cut from an anthology names the issue verbatim — `(Work Beta -Gamma-
   // Vol. 24)`, counter and wrapper intact — so the phrase keeps its counter; cutting
   // it would retrieve every issue ever published and push this issue's own chapters
   // off the first page
   const anthology = source.tags.includes(ANTHOLOGY_TAG)
-  const roman = source.title ? fieldTerms(source.title, anthology) : { terms: [], balanced: true }
-  const japanese = source.titleJpn ? fieldTerms(source.titleJpn, anthology) : { terms: [], balanced: true }
+  const roman = source.title ? fieldTerms(source.title, anthology) : { terms: [], identityBlocks: [], balanced: true }
+  const japanese = source.titleJpn ? fieldTerms(source.titleJpn, anthology) : { terms: [], identityBlocks: [], balanced: true }
+  if (visibility === 'expunged') {
+    const identities = [...new Set([...roman.identityBlocks, ...japanese.identityBlocks])]
+    return directPlan('realporn', identities.length > 0 ? identities : sliceTerms(japanese, roman), visibility)
+  }
   const phrases: string[] = []
   for (const term of [...roman.terms, ...japanese.terms]) {
     if (!phrases.includes(term)) phrases.push(term)
@@ -138,6 +170,8 @@ export function planSearch(source: SourceGallery): SearchPlan {
   // the container plan compares against whole phrases: a slice would never
   // match a segment, and every chapter term would be sent twice
   return {
+    mode: 'work',
+    visibility: 'published',
     editionTerms,
     // an anthology's creator tags name everyone the issue collected, and a search
     // accepts five name + tag inclusions at most (ehwiki `Gallery_Searching`, Search
@@ -149,8 +183,51 @@ export function planSearch(source: SourceGallery): SearchPlan {
   }
 }
 
+function directPlan(mode: SearchMode, editionTerms: string[], visibility: SearchVisibility): SearchPlan {
+  return {
+    mode,
+    visibility,
+    editionTerms,
+    scope: '',
+    fixedRange: false,
+    containerTerms: [],
+    containerNames: [],
+    chapterTerms: [],
+    isContainerCandidate: false,
+  }
+}
+
+/**
+ * The complete `f_search` of one request: one term, qualified for its mode,
+ * plus whatever the plan filters by.
+ *
+ * `title:` earns its place twice. A bare phrase is matched against tags as well
+ * as titles (ehwiki `Gallery_Searching`), and a work phrase that happens to
+ * equal a popular tag then fills the 25-row first page with unrelated galleries
+ * — corpus run: 4.4% of phrases collide with a tag value, and qualifying them
+ * puts 16.5% more real hits back on the first page. A cosplayer term is the
+ * opposite case and arrives as a finished exact-tag clause: what is wanted is
+ * the tag itself, so it goes out untouched.
+ *
+ * One phrase per request, always. `~` reads as OR for tag terms only: mixed into
+ * a tag OR group EH rejects the query outright, and `~title:"a" ~title:"b"` is
+ * accepted yet behaves as AND. Measured live: `title:"a"` alone returned 11
+ * galleries, `title:"b"` 4, `title:"c"` 1, and `~title:"a" ~title:"b"
+ * ~title:"c"` returned that same 1 — the intersection, not the union. Riding
+ * phrases together would therefore drop 35.3% of the editions and series this
+ * finds and leave 13.8% of galleries with nothing at all.
+ */
+export function queryOf(plan: SearchPlan, term: string): string {
+  const clauses = [plan.mode === 'cosplayer' ? term : `title:"${term}"`]
+  if (plan.scope) clauses.push(plan.scope)
+  if (plan.visibility === 'expunged') clauses.push(REALPORN_CLAUSE)
+  return clauses.join(' ')
+}
+
 interface FieldTerms {
   terms: string[]
+  /** leading identity blocks as the field writes them; the realporn path searches these verbatim */
+  identityBlocks: string[]
   balanced: boolean
 }
 

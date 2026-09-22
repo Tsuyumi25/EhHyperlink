@@ -156,6 +156,8 @@ export interface TitleParts {
   identity: string
   /** series / container read from a context-family block after the core, normalized */
   context: string
+  /** 逐塊保留標點與巢狀內容；分開的區塊無法合成連續搜尋詞。 */
+  identityBlocks: string[]
   /**
    * Core as written in the title, one entry per run of top-level text
    * (whitespace collapsed). A bracket block between two runs means the title
@@ -230,7 +232,7 @@ export function analyzeTitle(value: string): TitleParts {
   const parsed = parseTitleSegments(value)
   if (parsed === null) {
     const text = value.normalize('NFKC').trim()
-    return { core: normalizeTitleText(value), identity: '', context: '', coreSegments: text ? [text] : [], wrapped: [], contextBlocks: [], contextText: '', balanced: false }
+    return { core: normalizeTitleText(value), identity: '', context: '', identityBlocks: [], coreSegments: text ? [text] : [], wrapped: [], contextBlocks: [], contextText: '', balanced: false }
   }
 
   // Claim first: any block the marker table recognizes carries no work identity
@@ -272,10 +274,12 @@ export function analyzeTitle(value: string): TitleParts {
   const wrapped: string[] = []
   const coreSegments = written.map((text) => stripMirroredBlocks(text, wrapped)).filter(Boolean)
   const contextBlocks = context.map((text) => text.split(whitespaceRun).filter(Boolean).join(' ')).filter(Boolean)
+  const identityBlocks = identity.map((text) => text.split(whitespaceRun).filter(Boolean).join(' ')).filter(Boolean)
   return {
     core: normalizeTitleText(written.join(' ')),
     identity: normalizeTitleText(identity.join(' ')),
     context: normalizeTitleText(contextBlocks.join(' ')),
+    identityBlocks,
     coreSegments,
     wrapped,
     contextBlocks,

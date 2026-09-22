@@ -4,9 +4,10 @@ import { fetchGalleryMetadata } from './eh/ehApi'
 import { fetchSearch, type SearchHit, type SearchResponse } from './eh/ehSearch'
 import type { SentRequest } from './eh/requestLog'
 import type { SourceGallery } from './eh/galleryPage'
-import { planSearch, type SearchPlan } from './search/searchPlan'
+import { planSearch, queryOf, type SearchPlan } from './search/searchPlan'
 import { hasAiGeneratedTag } from './rank/titleSimilarity'
 import { sweepCache } from './eh/cache'
+import { selectDiscoveries } from './search/discovery'
 
 export type { Book, Edition, EditionFlag, EditionGroup } from './rank/edition'
 export type { MetadataRequest, SearchRequest, SentRequest } from './eh/requestLog'
@@ -23,7 +24,7 @@ export interface JumpResult {
   editions: EditionGroup[]
   /** other books of the same series, grouped by language */
   series: EditionGroup[]
-  /** same creator and vocabulary, relation unproven; only the fixed-range path fills this */
+  /** fixed-range matches or unscored direct-search results */
   related: EditionGroup[]
   /** chapters cut from this gallery when it is a magazine or tankoubon, grouped by language */
   chapters: EditionGroup[]
@@ -72,7 +73,7 @@ export async function findEditions(
   const search = async (terms: readonly string[]): Promise<SearchResponse[]> => {
     const pages: SearchResponse[] = []
     for (const term of terms) {
-      const page = await fetchSearch(origin, term, plan.scope, force)
+      const page = await fetchSearch(origin, queryOf(plan, term), plan.visibility, force)
       pages.push(page)
       requests.push(page.request)
       done += 1
@@ -133,7 +134,9 @@ export async function findEditions(
 
   const chapters = plan.isContainerCandidate ? matchExtractedChapters(source, enriched) : []
   const chapterGids = new Set(chapters.map((hit) => hit.gid))
-  const { editions, series, related } = scoreEditions(source, enriched.filter((hit) => !chapterGids.has(hit.gid)), plan.fixedRange)
+  const { editions, series, related } = plan.mode === 'work'
+    ? scoreEditions(source, enriched.filter((hit) => !chapterGids.has(hit.gid)), plan.fixedRange)
+    : { editions: [], series: [], related: selectDiscoveries(source, enriched).map((hit) => toEdition(hit, null)) }
 
   // the oldest response in this result: what the reader is actually looking at
   const dataAt = Math.min(containerMeta.oldestAt, meta.oldestAt, ...searchPages.map((page) => page.at))
@@ -146,7 +149,7 @@ export async function findEditions(
     editions: groupByLanguage(editions, priority),
     series: groupByLanguage(series, priority),
     related: groupByLanguage(related, priority),
-    chapters: groupByLanguage(chapters.map((hit) => toEdition(hit, 1)), priority),
+    chapters: groupByLanguage(chapters.map((hit) => toEdition(hit, null)), priority),
     containers,
   }
 }

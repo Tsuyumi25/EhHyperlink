@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import GroupList from '@/components/GroupList.vue'
 import SettingsPopup from '@/components/SettingsPopup.vue'
 import { Activity, CircleSlash2, RefreshCw, Settings } from '@lucide/vue'
-import { locale, t, LANGUAGE_PRIORITY } from '@/i18n'
+import { locale, t, LANGUAGE_PRIORITY, type MessageKey } from '@/i18n'
 import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
 import { findEditions, type EditionGroup, type JumpResult, type MetadataRequest, type SearchProgress, type SearchRequest } from '@/core/pipeline'
 import { displayTitle, subtitle } from '@/settings'
@@ -55,7 +55,12 @@ interface Badge {
   label: string
   title: string
   groups: EditionGroup[]
-  showScore: boolean
+}
+
+const RELATED_TITLES: Record<JumpResult['plan']['mode'], MessageKey> = {
+  work: 'relatedTitle',
+  cosplayer: 'cosplayerRelatedTitle',
+  realporn: 'directRelatedTitle',
 }
 
 /** One badge per meaning; the edition badge reads as the language codes found. */
@@ -63,13 +68,13 @@ const badges = computed<Badge[]>(() => {
   if (!result.value) return []
   const list: Badge[] = []
   if (result.value.editions.length > 0) {
-    list.push({ id: 'editions', label: result.value.editions.map((group) => group.language.code).join(' · '), title: t('editionsTitle'), groups: result.value.editions, showScore: true })
+    list.push({ id: 'editions', label: result.value.editions.map((group) => group.language.code).join(' · '), title: t('editionsTitle'), groups: result.value.editions })
   }
-  if (result.value.series.length > 0) list.push({ id: 'series', label: t('series'), title: t('seriesTitle'), groups: result.value.series, showScore: true })
+  if (result.value.series.length > 0) list.push({ id: 'series', label: t('series'), title: t('seriesTitle'), groups: result.value.series })
   if (result.value.related.length > 0) {
-    list.push({ id: 'related', label: t('related'), title: t('relatedTitle'), groups: result.value.related, showScore: true })
+    list.push({ id: 'related', label: t('related'), title: t(RELATED_TITLES[result.value.plan.mode]), groups: result.value.related })
   }
-  if (result.value.chapters.length > 0) list.push({ id: 'chapters', label: t('chapters'), title: t('chaptersTitle'), groups: result.value.chapters, showScore: false })
+  if (result.value.chapters.length > 0) list.push({ id: 'chapters', label: t('chapters'), title: t('chaptersTitle'), groups: result.value.chapters })
   return list
 })
 
@@ -136,7 +141,7 @@ function toggle(id: string): void {
             <ul>
               <li v-for="request in searchRequests" :key="request.url">
                 <a class="ehl-url" :href="request.url" target="_blank" rel="noopener">
-                  "{{ request.term }}"
+                  {{ request.term }}
                   <span class="ehl-subtitle">{{ request.url }}</span>
                 </a>
                 <span v-if="request.cached" class="ehl-facts"><span class="ehl-meta">{{ t('fromCache') }}</span></span>
@@ -163,7 +168,7 @@ function toggle(id: string): void {
       <template v-if="result">
         <div v-for="badge in badges" :key="badge.id" class="ehl-unit" :class="{ 'ehl-unit--open': open === badge.id }" @mouseenter="hovered = badge.id" @mouseleave="hovered = null">
           <button type="button" class="ehl-badge" :class="{ 'ehl-tab--pinned': pinned === badge.id }" :title="badge.title" @click="toggle(badge.id)">{{ badge.label }}</button>
-          <GroupList :groups="badge.groups" :show-score="badge.showScore" />
+          <GroupList :groups="badge.groups" />
         </div>
         <div v-if="result.containers.length > 0" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'containers' }" @mouseenter="hovered = 'containers'" @mouseleave="hovered = null">
           <button type="button" class="ehl-badge ehl-badge--container" :class="{ 'ehl-tab--pinned': pinned === 'containers' }" :title="t('containerTitle')" @click="toggle('containers')">{{ t('container') }}</button>

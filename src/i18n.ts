@@ -9,7 +9,7 @@ export const locale: Locale = (() => {
 
 const MESSAGES = {
   searching: { en: 'Searching…', zh: '搜尋中…', ja: '検索中…' },
-  notFound: { en: 'No other editions', zh: '未找到', ja: '見つかりません' },
+  notFound: { en: 'No results', zh: '未找到', ja: '見つかりません' },
   noTitle: { en: 'No searchable title', zh: '沒有可搜尋的標題', ja: '検索できるタイトルなし' },
   failed: { en: 'Search failed', zh: '搜尋失敗', ja: '検索失敗' },
   container: { en: 'Source', zh: '原刊', ja: '掲載元' },
@@ -22,6 +22,16 @@ const MESSAGES = {
     en: 'Same creator and wording, relation unproven',
     zh: '同作者、用詞相同，關係未經確認',
     ja: '同じ作者・同じ語句だが関係は未確認',
+  },
+  cosplayerRelatedTitle: {
+    en: 'Other works by the same cosplayer',
+    zh: '同一位 cosplayer 的其他作品',
+    ja: '同じコスプレイヤーの他の作品',
+  },
+  directRelatedTitle: {
+    en: 'Results matching the search, without title similarity filtering',
+    zh: '符合搜尋條件的結果，不以標題相似度篩選',
+    ja: '検索条件に一致した結果、タイトル類似度による絞り込みなし',
   },
   chapters: { en: 'Chapters', zh: '收錄作品', ja: '収録作品' },
   chaptersTitle: { en: 'Chapters cut from this magazine or tankoubon', zh: '從這本雜誌或單行本切出來的作品', ja: 'この掲載誌・単行本から切り出された作品' },

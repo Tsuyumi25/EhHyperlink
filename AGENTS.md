@@ -40,6 +40,15 @@ file come from that census.
   corpus does support.
 - Only the current gallery is expanded into containers / chapters. Results
   are never expanded in turn.
+- Direct discovery takes precedence over work matching. A `cosplayer:` source
+  searches each cosplayer tag independently and excludes hits matching either
+  complete source title; keep punctuation, counters and context in that
+  comparison. Do not apply book similarity or creator verdicts to these hits.
+- An `other:realporn` source uses `f_sh=on` and the exact same tag on every
+  search. Without cosplayer tags, search raw leading identity blocks separately;
+  without identity blocks, use the existing minimum fragments. Direct discovery
+  uses tags or identity independently of usable work text, bypasses the
+  container chain, and represents unscored results with `score: null`.
 
 ## Host page
 
@@ -52,8 +61,8 @@ We are a guest on someone else's document:
   category is read from the badge's `onclick` navigation target and `ct<N>`
   class (`src/core/eh/category.ts`); titles come from `#gn` / `#gj` and are
   re-fetched through the metadata API for candidates.
-- Search pages: one `fetch` per quoted phrase, first page only, any of the
-  five list display modes must parse. Metadata: `api.e-hentai.org` gdata,
+- Search pages: one `fetch` per quoted phrase or cosplayer tag, first page only,
+  any of the five list display modes must parse. Metadata: `api.e-hentai.org` gdata,
   25 galleries per request, pause after 4 requests
   (https://ehwiki.org/wiki/API). The API sends CORS for both hosts, so plain
   `fetch` works; no `@connect` needed.
@@ -137,7 +146,8 @@ and commit messages:
 - Put title parsing and whole-phrase search planning in `wholePhrase.test.ts`,
   single-creator fragment search planning in `fixedRange.test.ts`, and result
   classification, grouping and ordering in `results.test.ts`. The container
-  branch's planning and matching cases belong in `container.test.ts`.
+  branch's planning and matching cases belong in `container.test.ts`; direct
+  cosplayer/realporn planning and query cases belong in `directSearch.test.ts`.
 - Write cases as standalone `operation(input).expect(expected)` calls, with
   blank lines and explanatory comments between groups. Do not wrap the cases
   in a shared array. Every `hit` / `hits` candidate must explicitly carry its
@@ -158,7 +168,7 @@ and commit messages:
 - `src/core/title/` — how a title is read: bracket parser, marker table,
   chapter / sequel / numeral rules, `pattern.ts`
 - `src/core/search/` — what to search and how a hit relates to the source:
-  search plan, Manga container rules, edition-vs-series relation
+  search plan, direct-discovery filtering, Manga container rules, edition-vs-series relation
 - `src/core/rank/` — scoring, creator verdict, language detection, grouping
 - `src/core/eh/` — talking to E-Hentai: search page, metadata API, URL,
   gallery page, category
@@ -175,7 +185,7 @@ and commit messages:
 ```
 pnpm install
 pnpm dev        # dev server; the URL it prints installs into a script manager
-pnpm build      # vue-tsc --noEmit && vite build → dist/eh-hyper-link.user.js
+pnpm build      # vue-tsc --noEmit && vite build → dist/eh-hyperlink.user.js
 pnpm test       # vitest
 ```
 

@@ -105,7 +105,7 @@ it('publishes the complete container stage before editions and reuses its metada
       .mocked(fetchSearch)
       .mock.calls.slice(0, 2)
       .map((args) => args[1]),
-  ).toEqual(['COMIC Alphabeta Monthly Vol. 18', 'コミック甲 Vol.18'])
+  ).toEqual(['title:"COMIC Alphabeta Monthly Vol. 18"', 'title:"コミック甲 Vol.18"'])
   expect(early.requests.map((request) => request.kind)).toEqual([
     'search',
     'search',
@@ -183,5 +183,39 @@ it('returns one completed result when no container search is planned', async () 
     ),
   ).toEqual([31])
   expect(metadataBatches).toEqual([[31]])
+  expect(onResult).not.toHaveBeenCalled()
+})
+
+// 多個 cosplayer 搜尋合併後，以 metadata 的原始標題排除同名圖庫，
+// 搜尋頁被翻譯過的名稱不會誤留同名版本或誤刪其他作品。
+it('filters direct discoveries after metadata enrichment across tag searches', async () => {
+  const onResult = vi.fn()
+  const source = gallery({
+    title: englishEdition.title,
+    category: 'Manga',
+    tags: ['cosplayer:cosplayer_alpha', 'cosplayer:cosplayer_beta', 'other:realporn'],
+  })
+  vi.mocked(fetchSearch)
+    .mockResolvedValueOnce(page('cosplayer:"cosplayer alpha$" other:"realporn$"', [
+      { ...englishEdition, title: publication.title },
+      { ...chineseEdition, title: source.title },
+    ]))
+    .mockResolvedValueOnce(page('cosplayer:"cosplayer beta$" other:"realporn$"', [
+      englishEdition,
+      chineseEdition,
+    ]))
+
+  const result = await findEditions(source, origin, [], { onResult })
+  const related = result.related.flatMap((group) =>
+    group.books.flatMap((book) =>
+      book.releases.map((release) => ({ gid: release.hit.gid, score: release.score })),
+    ),
+  )
+  expect(related).toEqual([{ gid: 32, score: null }])
+  expect(result.editions).toEqual([])
+  expect(result.series).toEqual([])
+  expect(result.containers).toEqual([])
+  expect(result.chapters).toEqual([])
+  expect(metadataBatches).toEqual([[31, 32]])
   expect(onResult).not.toHaveBeenCalled()
 })

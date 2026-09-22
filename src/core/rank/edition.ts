@@ -15,7 +15,12 @@ export type EditionFlag = 'rewrite' | 'rough translation' | 'extraneous ads'
 
 export interface Edition {
   hit: SearchHit
-  score: number
+  /**
+   * Similarity to the source, or null when nothing scored this row: a chapter
+   * pulled out of its container, or a direct discovery the host itself
+   * selected by tag. A number there would have to be invented.
+   */
+  score: number | null
   language: string
   flags: EditionFlag[]
 }
@@ -124,7 +129,7 @@ function compareEditions(left: Edition, right: Edition): number {
   return a.posted - b.posted
 }
 
-export function toEdition(hit: SearchHit, score: number): Edition {
+export function toEdition(hit: SearchHit, score: number | null): Edition {
   return { hit, score, language: detectLanguage(hit.title, hit.tags), flags: editionFlags(hit.tags) }
 }
 

@@ -360,6 +360,95 @@ relations({
   ],
 }).expect({ editions: [], series: [], related: [] })
 
+// 直接走 tag 的搜尋：主機已經決定這些列屬於這裡，標題像不像都留著
+relations({
+  source: {
+    title: '[Studio Alpha] Set Beta (Character Gamma)',
+    tags: ['cosplayer:name alpha'],
+  },
+  hits: [
+    { gid: 1, title: '[Studio Alpha] Set Delta (Character Epsilon)' },
+    { gid: 2, title: '[Studio Zeta] 写真集乙 (角色丙)' },
+  ],
+}).expect({ editions: [], series: [], related: [1, 2] })
+
+// 同一套在別的 gid 下再貼一次：整句一字不差的就是讀者眼前這本，大小寫與全形不算差別
+relations({
+  source: {
+    title: '[Studio Alpha] Set Beta (Character Gamma)',
+    tags: ['cosplayer:name alpha'],
+  },
+  hits: [
+    { gid: 1, title: '[Studio Alpha] SET BETA （Character Gamma）' },
+    { gid: 2, title: '[Studio Alpha] Set Beta (Character Gamma) [Digital]' },
+  ],
+}).expect({ editions: [], series: [], related: [2] })
+
+// 原文標題也算，兩個欄位交叉比；只有原文標題不同的那本留著
+relations({
+  source: {
+    title: '[Studio Alpha] Set Beta',
+    titleJpn: '[スタジオ甲] 写真集乙',
+    tags: ['cosplayer:name alpha'],
+  },
+  hits: [
+    { gid: 1, title: '[スタジオ甲] 写真集乙' },
+    { gid: 2, titleJpn: '[スタジオ甲] 写真集丙' },
+  ],
+}).expect({ editions: [], series: [], related: [2] })
+
+// 空的欄位不算相等：來源沒有原文標題，候選沒有羅馬字標題，兩邊都還在
+relations({
+  source: { title: '[Studio Alpha] Set Beta', tags: ['cosplayer:name alpha'] },
+  hits: [
+    { gid: 1, titleJpn: '[スタジオ甲] 写真集丁' },
+    { gid: 2, title: '', titleJpn: '' },
+  ],
+}).expect({ editions: [], series: [], related: [1, 2] })
+
+// 比整句以外的東西都會少看：只差第幾本的是另一本，只差攝影團體與作品區塊的也是
+relations({
+  source: {
+    title: '[Studio Alpha] Set Beta vol. 1 (Character Gamma)',
+    tags: ['cosplayer:name alpha'],
+  },
+  hits: [
+    { gid: 1, title: '[Studio Alpha] Set Beta vol. 2 (Character Gamma)' },
+    { gid: 2, title: '[Studio Zeta] Set Beta vol. 1 (Character Delta)' },
+  ],
+}).expect({ editions: [], series: [], related: [1, 2] })
+
+// 來源自己與重複的 gid 照樣丟掉，第一次出現的順序留著
+relations({
+  source: { title: '[Studio Alpha] Set Beta', tags: ['cosplayer:name alpha'] },
+  hits: [
+    { gid: 1000, title: '[Studio Alpha] Set Epsilon' },
+    { gid: 2, title: '[Studio Alpha] Set Delta' },
+    { gid: 2, title: '[Studio Alpha] Set Delta [Digital]' },
+  ],
+}).expect({ editions: [], series: [], related: [2] })
+
+// 沒有 cosplayer tag 的那條直接路線同樣照單全收：創作者不相干、分數再低、
+// 連整句一樣的都留著——那裡的標題本來就會重複
+relations({
+  source: { title: 'Identity Alpha Session Beta', tags: ['other:realporn'] },
+  hits: [
+    {
+      gid: 1,
+      title: 'Identity Alpha Session Gamma',
+      tags: ['artist:someone else'],
+    },
+    { gid: 2, title: 'Unrelated Delta' },
+    { gid: 3, title: 'Identity Alpha Session Beta' },
+  ],
+}).expect({ editions: [], series: [], related: [1, 2, 3] })
+
+// 這些列沒有分數可言，讀者看到的也就不是百分比
+relatedScores({
+  source: { title: '[Studio Alpha] Set Beta', tags: ['cosplayer:name alpha'] },
+  hits: [{ gid: 1, title: '[Studio Alpha] Set Delta' }],
+}).expect(['unscored'])
+
 // 同一本書的多個 release 併在一起，不同本分開；換創作者就是另一本
 releaseGroups({
   hits: [

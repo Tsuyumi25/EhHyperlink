@@ -11,7 +11,7 @@
 - [ ] Sleazy Fork
 - [ ] GitHub Releases
 
-還沒發佈之前：`pnpm build` 之後安裝 `dist/eh-hyper-link.user.js`。
+還沒發佈之前：`pnpm build` 之後安裝 `dist/eh-hyperlink.user.js`。
 
 ## 開發
 

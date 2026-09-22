@@ -25,15 +25,19 @@ describe('search result parsing', () => {
     expect(parseSearchResults('<html><body><p>No hits found</p></body></html>')).toEqual([])
   })
 
-  it('qualifies the phrase with title: and appends the creator scope', () => {
-    const unscoped = new URL(searchUrl('https://e-hentai.org', 'Work Beta'))
-    expect(unscoped.searchParams.get('f_search')).toBe('title:"Work Beta"')
-    const scoped = searchUrl('https://e-hentai.org', 'Work Beta', 'a:"artist alpha$"')
-    expect(new URL(scoped).searchParams.get('f_search')).toBe('title:"Work Beta" a:"artist alpha$"')
+  it('sends the query as the planner wrote it instead of qualifying a bare phrase', () => {
+    const url = new URL(searchUrl('https://e-hentai.org', 'title:"Work Beta" a:"artist alpha$"'))
+    expect(url.searchParams.get('f_search')).toBe('title:"Work Beta" a:"artist alpha$"')
+    const tagQuery = new URL(searchUrl('https://e-hentai.org', 'cosplayer:"name alpha$" other:"realporn$"'))
+    expect(tagQuery.searchParams.get('f_search')).toBe('cosplayer:"name alpha$" other:"realporn$"')
   })
 
-  it('explicitly includes every category instead of inheriting saved category exclusions', () => {
-    const url = new URL(searchUrl('https://exhentai.org', 'Work Beta', 'a:"artist alpha$"'))
-    expect(url.searchParams.get('f_cats')).toBe('0')
+  it('asks for expunged galleries only in the expunged visibility, and for every category in both', () => {
+    const published = new URL(searchUrl('https://exhentai.org', 'title:"Work Beta"'))
+    expect(published.searchParams.get('f_sh')).toBeNull()
+    expect(published.searchParams.get('f_cats')).toBe('0')
+    const expunged = new URL(searchUrl('https://exhentai.org', 'title:"Work Beta"', 'expunged'))
+    expect(expunged.searchParams.get('f_sh')).toBe('on')
+    expect(expunged.searchParams.get('f_cats')).toBe('0')
   })
 })

@@ -13,7 +13,7 @@ const FLAG_LABELS: Record<EditionFlag, MessageKey> = {
   'extraneous ads': 'extraneousAds',
 }
 
-defineProps<{ groups: EditionGroup[]; showScore: boolean }>()
+defineProps<{ groups: EditionGroup[] }>()
 
 function percent(score: number): string {
   return `${Math.round(score * 100)}%`
@@ -102,7 +102,7 @@ function showPreview(release: Edition | null): void {
           </span>
           <span class="ehl-facts">
             <StarRating v-if="release.hit.rating !== null" :rating="release.hit.rating" />
-            <span v-if="showScore" class="ehl-meta">{{ percent(release.score) }}</span>
+            <span v-if="release.score !== null" class="ehl-meta">{{ percent(release.score) }}</span>
             <span v-if="release.hit.pages !== null" class="ehl-meta">{{ release.hit.pages }}{{ t('pages') }}</span>
             <span v-for="flag in release.flags" :key="flag" class="ehl-flag">{{ t(FLAG_LABELS[flag]) }}</span>
           </span>
@@ -135,7 +135,7 @@ function showPreview(release: Edition | null): void {
                   </span>
                   <span class="ehl-facts">
                     <StarRating v-if="release.hit.rating !== null" :rating="release.hit.rating" />
-                    <span v-if="showScore" class="ehl-meta">{{ percent(release.score) }}</span>
+                    <span v-if="release.score !== null" class="ehl-meta">{{ percent(release.score) }}</span>
                     <span v-if="release.hit.pages !== null" class="ehl-meta">{{ release.hit.pages }}{{ t('pages') }}</span>
                     <span v-for="flag in release.flags" :key="flag" class="ehl-flag">{{ t(FLAG_LABELS[flag]) }}</span>
                   </span>

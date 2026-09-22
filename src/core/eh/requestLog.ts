@@ -13,7 +13,7 @@
 export interface SearchRequest {
   kind: 'search'
   url: string
-  /** the quoted work phrase sent as `title:"…"`, before URL encoding */
+  /** complete `f_search` query before URL encoding */
   term: string
   /** answered from the cache; no request left the browser */
   cached?: boolean

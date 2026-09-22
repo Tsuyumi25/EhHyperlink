@@ -54,7 +54,7 @@ export interface SearchResponse {
  */
 export function searchUrl(origin: string, term: string, scope = ''): string {
   const query = scope ? `title:"${term}" ${scope}` : `title:"${term}"`
-  return `${origin}/?f_search=${encodeURIComponent(query)}`
+  return `${origin}/?f_cats=0&f_search=${encodeURIComponent(query)}`
 }
 
 /**

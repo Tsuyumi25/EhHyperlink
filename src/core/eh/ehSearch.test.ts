@@ -26,8 +26,14 @@ describe('search result parsing', () => {
   })
 
   it('qualifies the phrase with title: and appends the creator scope', () => {
-    expect(searchUrl('https://e-hentai.org', 'Work Beta')).toBe('https://e-hentai.org/?f_search=title%3A%22Work%20Beta%22')
+    const unscoped = new URL(searchUrl('https://e-hentai.org', 'Work Beta'))
+    expect(unscoped.searchParams.get('f_search')).toBe('title:"Work Beta"')
     const scoped = searchUrl('https://e-hentai.org', 'Work Beta', 'a:"artist alpha$"')
     expect(new URL(scoped).searchParams.get('f_search')).toBe('title:"Work Beta" a:"artist alpha$"')
+  })
+
+  it('explicitly includes every category instead of inheriting saved category exclusions', () => {
+    const url = new URL(searchUrl('https://exhentai.org', 'Work Beta', 'a:"artist alpha$"'))
+    expect(url.searchParams.get('f_cats')).toBe('0')
   })
 })

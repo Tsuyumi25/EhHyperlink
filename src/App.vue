@@ -16,7 +16,7 @@ const progress = ref<SearchProgress | null>(null)
 /** Tab id whose panel is shown: a hovered list tab previews, a clicked tab stays; one panel at a time. */
 const pinned = ref<string | null>(null)
 const hovered = ref<string | null>(null)
-const open = computed(() => hovered.value ?? pinned.value)
+const open = computed(() => pinned.value ?? hovered.value)
 
 /** Kept so the refetch button can run the same search again. */
 const source = ref<SourceGallery | null>(null)

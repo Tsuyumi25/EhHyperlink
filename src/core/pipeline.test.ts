@@ -173,8 +173,8 @@ it('leaves the published containers available when a later search fails', async 
   ).toEqual([[21]])
 })
 
-// 無原刊的路徑仍整批交付，不發布空的中間結果。
-it('returns one completed result when no container search is planned', async () => {
+// 無原刊或原作分支時仍整批交付，不發布空的中間結果。
+it('returns one completed result when no additional search stage is planned', async () => {
   const onResult = vi.fn()
   vi.mocked(fetchSearch).mockResolvedValueOnce(
     page('Work Beta', [englishEdition]),
@@ -225,4 +225,113 @@ it('filters direct discoveries after metadata enrichment across tag searches', a
   expect(result.chapters).toEqual([])
   expect(metadataBatches).toEqual([[31, 32]])
   expect(onResult).not.toHaveBeenCalled()
+})
+
+it('merges parody discoveries with title hits without conflating series and related works', async () => {
+  const tags = ['artist:artist_alpha', 'parody:series_beta']
+  const source = gallery({ title: '[Artist Alpha] Work Beta 1', tags })
+  const edition = hit({ gid: 71, title: '[Artist Alpha] Work Beta 1 [English]', tags })
+  const sequel = hit({ gid: 72, title: '[Artist Alpha] Work Beta 2', tags })
+  const related = hit({ gid: 73, title: '[Artist Alpha] Work Gamma', tags })
+  const entries = new Map([edition, sequel, related].map((entry) => [entry.gid, entry]))
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, options: RequestInit) => {
+    const body = JSON.parse(String(options.body)) as { gidlist: [number, string][] }
+    const gids = body.gidlist.map(([gid]) => gid)
+    metadataBatches.push(gids)
+    return new Response(JSON.stringify({ gmetadata: gids.map((gid) => entries.get(gid)) }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }))
+  const parodyQuery = 'a:"artist alpha$" p:"series beta$"'
+  vi.mocked(fetchSearch).mockImplementation(async (_origin, query) =>
+    page(query, query === parodyQuery ? [edition, sequel, related] : [edition]),
+  )
+
+  const result = await findEditions(source, origin, [])
+  const gids = (groups: JumpResult['editions']) => groups.flatMap((group) =>
+    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
+  )
+  expect(gids(result.editions)).toEqual([71])
+  expect(gids(result.series)).toEqual([72])
+  expect(gids(result.related)).toEqual([73])
+  expect(metadataBatches).toEqual([[71], [72, 73]])
+  expect(result.requests.filter((request) => request.kind === 'search').map((request) => request.term)).toEqual([
+    'title:"Work" a:"artist alpha$"',
+    'title:"Beta" a:"artist alpha$"',
+    parodyQuery,
+  ])
+})
+
+it('publishes enriched title results before starting the final parody search', async () => {
+  const source = gallery({
+    title: 'Work Beta',
+    tags: ['artist:artist_alpha', 'parody:series_beta'],
+  })
+  const parodyQuery = 'a:"artist alpha$" p:"series beta$"'
+  const remaining = Promise.withResolvers<SearchResponse>()
+  const started = Promise.withResolvers<void>()
+  const published: JumpResult[] = []
+  vi.mocked(fetchSearch).mockImplementation(async (_origin, query) => {
+    if (query === parodyQuery) {
+      started.resolve()
+      return remaining.promise
+    }
+    return page(query, [englishEdition])
+  })
+  const pending = findEditions(source, origin, ['english', 'chinese'], {
+    force: true,
+    onResult: (result) => published.push(result),
+  })
+
+  await started.promise
+  expect(published).toHaveLength(1)
+  const early = published[0]
+  expect(early.editions.flatMap((group) =>
+    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
+  )).toEqual([31])
+  expect(metadataBatches).toEqual([[31]])
+
+  remaining.resolve(page(parodyQuery, [englishEdition, chineseEdition]))
+  const final = await pending
+  expect(final.editions.flatMap((group) =>
+    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
+  )).toEqual([31, 32])
+  expect(metadataBatches).toEqual([[31], [32]])
+  expect(early.requests.map((request) => request.kind)).toEqual(['search', 'search', 'metadata'])
+  expect(early.editions.flatMap((group) =>
+    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
+  )).toEqual([31])
+})
+
+it('keeps published title results when the final parody search is blocked', async () => {
+  const source = gallery({
+    title: 'Work Beta',
+    tags: ['artist:artist_alpha', 'parody:series_beta'],
+  })
+  const parodyQuery = 'a:"artist alpha$" p:"series beta$"'
+  const published: JumpResult[] = []
+  vi.mocked(fetchSearch).mockImplementation(async (_origin, query) => {
+    if (query !== parodyQuery) return page(query, [englishEdition])
+    return {
+      ...page(query, []),
+      request: {
+        ...page(query, []).request,
+        hitCount: null,
+        error: new RequestError('http', 'Forbidden', 403),
+      },
+    }
+  })
+
+  const final = await findEditions(source, origin, [], {
+    onResult: (result) => published.push(result),
+  })
+  expect(published).toHaveLength(1)
+  expect(published[0].status).toBe('complete')
+  expect(final.status).toBe('partial')
+  expect(final.editions.flatMap((group) =>
+    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
+  )).toEqual([31])
+  expect(final.editions).toEqual(published[0].editions)
+  expect(published[0].requests.some((request) => request.error)).toBe(false)
+  expect(metadataBatches).toEqual([[31]])
 })

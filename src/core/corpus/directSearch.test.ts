@@ -1,4 +1,4 @@
-import { planSearch, queryOf } from '../search/searchPlan'
+import { planSearch, queryOf, seriesQueriesOf } from '../search/searchPlan'
 import { defineCase } from './check'
 import { gallery, type GalleryInput } from './gallery'
 import { search } from './plan'
@@ -112,3 +112,32 @@ queries({ title: '[Circle Alpha] Work Beta Gamma', tags: ['artist:artist_alpha']
   'title:"Work" a:"artist alpha$"',
   'title:"Gamma" a:"artist alpha$"',
 ])
+
+const seriesQueries = defineCase<GalleryInput, string[]>('原作系列搜尋語法', (input) =>
+  seriesQueriesOf(gallery(input)),
+)
+
+seriesQueries({
+  tags: ['group:circle_alpha', 'artist:artist_alpha', 'parody:series_beta'],
+}).expect(['a:"artist alpha$" p:"series beta$"'])
+
+seriesQueries({
+  tags: ['group:circle_alpha', 'parody:series_beta', 'parody:series_gamma'],
+}).expect([
+  'g:"circle alpha$" p:"series beta$"',
+  'g:"circle alpha$" p:"series gamma$"',
+])
+
+seriesQueries({
+  tags: [
+    'artist:artist_alpha', 'artist:artist_beta', 'artist:artist_gamma',
+    'artist:artist_delta', 'group:circle_alpha', 'parody:series_beta',
+  ],
+}).expect([
+  '~a:"artist alpha$" ~a:"artist beta$" ~a:"artist gamma$" ~a:"artist delta$" p:"series beta$"',
+  'g:"circle alpha$" p:"series beta$"',
+])
+
+seriesQueries({ tags: ['parody:series_beta'] }).expect([])
+seriesQueries({ tags: ['artist:artist_alpha'] }).expect([])
+seriesQueries({ tags: ['artist:artist_alpha', 'parody:original'] }).expect([])

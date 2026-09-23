@@ -17,10 +17,8 @@ export interface SearchPlan extends ContainerPlan {
   /** creator clause appended to every phrase search; empty when the gallery carries no creator tag, and always empty in a direct mode */
   scope: string
   /**
-   * True when `scope` names one creator and the terms are slices of this
-   * gallery's own title. The host then returns that creator's own shelf filtered
-   * by vocabulary the source itself uses, so a row needs no similarity of its
-   * own to be worth showing — see `scoreEditions`.
+   * True when the title-search scope names one creator and uses slices of this
+   * gallery's title. Opens `related` for same-creator candidates — see `scoreEditions`.
    */
   fixedRange: boolean
 }
@@ -64,6 +62,38 @@ export function creatorScope(tags: readonly string[]): string {
   const clauses = tags.map(clauseOf).filter((clause): clause is string => clause !== null)
   if (clauses.length <= 1) return clauses.join('')
   return clauses.map((clause) => `~${clause}`).join(' ')
+}
+
+const PARODY_PREFIX = 'parody:'
+const MAX_SEARCH_INCLUSIONS = 5
+
+export function seriesQueriesOf(source: SourceGallery): string[] {
+  const parodies = new Set<string>()
+  for (const tag of source.tags) {
+    if (!tag.startsWith(PARODY_PREFIX)) continue
+    const name = tag.slice(PARODY_PREFIX.length).replaceAll('_', ' ')
+    if (!name) continue
+    if (name === 'original') continue
+    parodies.add(name)
+  }
+  if (parodies.size === 0) return []
+
+  const sole = soleCreatorScope(source.tags)
+  const scopes: string[] = []
+  if (sole) {
+    scopes.push(sole)
+  } else {
+    const creators = source.tags.filter((tag) => clauseOf(tag) !== null)
+    const perQuery = MAX_SEARCH_INCLUSIONS - 1
+    for (let index = 0; index < creators.length; index += perQuery) {
+      scopes.push(creatorScope(creators.slice(index, index + perQuery)))
+    }
+  }
+  const queries: string[] = []
+  for (const scope of scopes) {
+    for (const name of parodies) queries.push(`${scope} p:"${name}$"`)
+  }
+  return queries
 }
 
 const COSPLAYER_PREFIX = 'cosplayer:'
@@ -120,9 +150,9 @@ function fieldTerms(value: string, keepCounter: boolean): FieldTerms {
  * planned before any of that — see the two direct modes below.
  *
  * With one creator the scope already pins the search to that person's shelf, so
- * the phrases are cut down to two short slices (`fragment.ts`) and the run costs
- * two requests whatever the title looks like — against p50 2, p90 3, max 9 for
- * the whole-phrase path. Several creators keep the whole phrases, and so does an
+ * the phrases are cut down to two short slices (`fragment.ts`) and the title
+ * path costs at most two requests — against p50 2, p90 3, max 9 for the
+ * whole-phrase path. Several creators keep the whole phrases, and so does an
  * anthology whatever its creator count: its phrase has to name one issue
  * exactly, so there is nothing to narrow and nothing to slice.
  *

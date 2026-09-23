@@ -140,9 +140,9 @@ export interface ScoredHits {
   /** another book of the same series, established by a shared phrase or a named work */
   series: Edition[]
   /**
-   * Same creator and vocabulary the source itself uses, with nothing else
-   * settling the relation. A sequel written as free prose lands here, and so
-   * does an unrelated book of theirs that happens to reuse a word.
+   * Same creator, found through title vocabulary or a shared parody, with
+   * nothing else settling the relation. Both free-prose sequels and unrelated
+   * books from the same creator can land here.
    */
   related: Edition[]
 }
@@ -151,19 +151,16 @@ export interface ScoredHits {
  * Score every hit against the source and sort it into one of the three
  * relations.
  *
- * Two ways into `series`. With the creator settled by tags, the host already
- * filtered — the search carried both the work phrase and the creator — so a
- * shared phrase admits the row and the score is left to describe it. Without
+ * Two ways into `series`. With the creator settled by tags, a shared work
+ * phrase admits the row and the score is left to describe it. Without
  * that, the score has to establish the relation itself and the threshold
  * applies. A third route admits titles that share no phrase at all: the creator
  * is settled and one title names the other's work inside a block.
  *
- * `fixedRange` opens `related`. The query was then a slice of this gallery's
- * own title sent against one creator's shelf, so every row agrees on the person
- * and on vocabulary the source uses — which is what the slices were cut to
- * find, and also what an unrelated book of theirs can satisfy by accident. The
- * relation stays unproven, so these are kept apart from `series` rather than
- * mixed into it. `sharesWorkPhrase` still earns the express route: clearing it
+ * `fixedRange` opens `related` for same-creator candidates from title-fragment
+ * and creator/parody searches. Neither shared vocabulary nor a shared parody
+ * proves a series, so these stay apart from `series`.
+ * `sharesWorkPhrase` still earns the express route: clearing it
  * means the phrase itself matched, so `relationOf` can tell an edition of the
  * same book from a sibling.
  */

@@ -1,8 +1,8 @@
 import { matchContainers, matchExtractedChapters } from './search/container'
 import { dedupe, type EditionGroup, enrichHits, groupByLanguage, scoreEditions, toEdition } from './rank/edition'
-import { fetchGalleryMetadata } from './eh/ehApi'
+import { fetchGalleryMetadata, type MetadataResponse } from './eh/ehApi'
 import { fetchSearch, type SearchHit, type SearchResponse } from './eh/ehSearch'
-import type { SentRequest } from './eh/requestLog'
+import { requestStopsRun, resultStatus, type SentRequest } from './eh/requestLog'
 import type { SourceGallery } from './eh/galleryPage'
 import { planSearch, queryOf, type SearchPlan } from './search/searchPlan'
 import { hasAiGeneratedTag } from './rank/titleSimilarity'
@@ -14,6 +14,7 @@ export type { MetadataRequest, SearchRequest, SentRequest } from './eh/requestLo
 
 export interface JumpResult {
   plan: SearchPlan
+  status: 'complete' | 'partial' | 'failed'
   /** every request this run sent, in send order; empty when the planner sent none */
   requests: SentRequest[]
   /** galleries the metadata cache answered for; no request left for these */
@@ -62,7 +63,7 @@ export async function findEditions(
   // stale entries from an earlier build or an expired day; nothing waits on it
   void sweepCache().catch(() => {})
   if (hasAiGeneratedTag(source.tags)) {
-    return { plan, requests: [], metadataFromCache: 0, dataAt: Date.now(), editions: [], series: [], related: [], chapters: [], containers: [] }
+    return { plan, status: 'complete', requests: [], metadataFromCache: 0, dataAt: Date.now(), editions: [], series: [], related: [], chapters: [], containers: [] }
   }
 
   // One search at a time: `fetchSearch` holds the host's pace, and holding it
@@ -73,6 +74,7 @@ export async function findEditions(
   const search = async (terms: readonly string[]): Promise<SearchResponse[]> => {
     const pages: SearchResponse[] = []
     for (const term of terms) {
+      if (requests.some(requestStopsRun)) break
       const page = await fetchSearch(origin, queryOf(plan, term), plan.visibility, force)
       pages.push(page)
       requests.push(page.request)
@@ -81,16 +83,21 @@ export async function findEditions(
     }
     return pages
   }
+  const loadMetadata = async (hits: readonly SearchHit[]): Promise<MetadataResponse> => {
+    if (requests.some(requestStopsRun)) return { metadata: new Map(), requests: [], fromCache: 0, oldestAt: Date.now() }
+    return fetchGalleryMetadata(hits.map(({ gid, token }) => ({ gid, token })), force)
+  }
   onProgress?.({ done, total })
   const containerPages = await search(plan.containerTerms)
   const containerHits = dedupe(containerPages.flatMap((page) => page.hits), source.gid)
-  const containerMeta = await fetchGalleryMetadata(containerHits.map(({ gid, token }) => ({ gid, token })), force)
+  const containerMeta = await loadMetadata(containerHits)
   const metadata = containerMeta.metadata
   requests.push(...containerMeta.requests)
   const containers = matchContainers(plan.containerNames, enrichHits(containerHits, metadata))
   if (plan.containerTerms.length > 0) {
     onResult?.({
       plan,
+      status: resultStatus(requests),
       requests: [...requests],
       metadataFromCache: containerMeta.fromCache,
       dataAt: Math.min(containerMeta.oldestAt, ...containerPages.map((page) => page.at)),
@@ -125,7 +132,7 @@ export async function findEditions(
 
   const candidates = dedupe([...editionPages, ...chapterPages].flatMap((page) => page.hits), source.gid)
   const missing = candidates.filter((candidate) => !metadata.has(candidate.gid))
-  const meta = await fetchGalleryMetadata(missing.map(({ gid, token }) => ({ gid, token })), force)
+  const meta = await loadMetadata(missing)
   for (const [gid, entry] of meta.metadata) metadata.set(gid, entry)
   requests.push(...meta.requests)
   const metadataFromCache = containerMeta.fromCache + meta.fromCache
@@ -143,6 +150,7 @@ export async function findEditions(
 
   return {
     plan,
+    status: resultStatus(requests),
     requests,
     metadataFromCache,
     dataAt: Number.isFinite(dataAt) ? dataAt : Date.now(),

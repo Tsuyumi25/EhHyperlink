@@ -8,6 +8,8 @@ import { locale, t, LANGUAGE_PRIORITY, type MessageKey } from '@/i18n'
 import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
 import { findEditions, type EditionGroup, type JumpResult, type MetadataRequest, type SearchProgress, type SearchRequest } from '@/core/pipeline'
 import { displayTitle, subtitle } from '@/settings'
+import type { FailureKind } from '@/core/eh/request'
+import { requestFailed } from '@/core/eh/requestLog'
 
 const state = ref<'searching' | 'done' | 'noTitle' | 'failed'>('searching')
 const result = ref<JumpResult | null>(null)
@@ -33,7 +35,7 @@ async function run(force: boolean): Promise<void> {
       onResult: (next) => (result.value = next),
     })
     result.value = found
-    state.value = found.plan.editionTerms.length === 0 && found.plan.containerTerms.length === 0 ? 'noTitle' : 'done'
+    state.value = found.status === 'failed' ? 'failed' : hasNoSearchTerms(found) ? 'noTitle' : 'done'
   } catch (error) {
     console.error('[EhHyperlink]', error)
     state.value = 'failed'
@@ -41,6 +43,22 @@ async function run(force: boolean): Promise<void> {
     progress.value = null
   }
 }
+
+function hasNoSearchTerms(found: JumpResult): boolean {
+  return found.plan.editionTerms.length === 0 && found.plan.containerTerms.length === 0
+}
+
+const FAILURE_MESSAGES: Record<FailureKind, MessageKey> = {
+  network: 'networkFailed',
+  timeout: 'requestTimedOut',
+  http: 'httpFailed',
+  'invalid-response': 'invalidResponse',
+}
+
+const hasActivity = computed(() => {
+  if (result.value !== null) return true
+  return state.value === 'failed'
+})
 
 onMounted(async () => {
   source.value = readSourceGallery()
@@ -89,7 +107,11 @@ const metadataFromCache = computed(() => result.value?.metadataFromCache ?? 0)
  * Requests that left the browser. A cached search is listed in the panel but
  * counts as nothing here, which is what the icon and the empty-state line read.
  */
-const sentCount = computed(() => requests.value.filter((request) => !(request.kind === 'search' && request.cached)).length)
+const sentCount = computed(() => requests.value.reduce((count, request) => count + request.attempts, 0))
+const allFromCache = computed(() => {
+  if (sentCount.value > 0) return false
+  return !requests.value.some(requestFailed)
+})
 
 const hasResults = computed(() => badges.value.length > 0 || (result.value?.containers.length ?? 0) > 0)
 
@@ -100,6 +122,7 @@ const status = computed(() => {
   }
   if (state.value === 'noTitle') return t('noTitle')
   if (state.value === 'failed') return t('failed')
+  if (result.value?.status === 'partial') return t('partial')
   return hasResults.value ? null : t('notFound')
 })
 
@@ -123,7 +146,7 @@ function toggle(id: string): void {
 <template>
   <div class="ehl-box" translate="no">
     <div class="ehl-tabs">
-      <div v-if="result" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'requests' }" @mouseenter="hovered = 'requests'" @mouseleave="hovered = null">
+      <div v-if="hasActivity" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'requests' }" @mouseenter="hovered = 'requests'" @mouseleave="hovered = null">
         <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'requests', 'ehl-tab--pinned': pinned === 'requests' }" :title="t('requestsTitle')" @click="toggle('requests')">
           <CircleSlash2 v-if="requests.length === 0" :size="14" aria-hidden="true" />
           <Activity v-else :size="14" aria-hidden="true" />
@@ -131,7 +154,8 @@ function toggle(id: string): void {
         <div class="ehl-list">
           <!-- the age of what is on screen, and the one control that discards it -->
           <h4 class="ehl-head ehl-asof">
-            {{ t('dataAsOf') }} {{ dataAge }}
+            <span v-if="result">{{ t('dataAsOf') }} {{ dataAge }}</span>
+            <span v-else>{{ t('failed') }}</span>
             <button type="button" class="ehl-refetch" :disabled="state === 'searching'" :title="t('refetchTitle')" @click="run(true)">
               <RefreshCw :size="11" aria-hidden="true" />
               {{ t('refetch') }}
@@ -146,7 +170,9 @@ function toggle(id: string): void {
                   <span class="ehl-subtitle">{{ request.url }}</span>
                 </a>
                 <span class="ehl-facts">
-                  <span class="ehl-meta" :title="t('searchHitsTitle')">{{ t('searchHits') }}: {{ request.hitCount }}</span>
+                  <span v-if="request.hitCount !== null" class="ehl-meta" :title="t('searchHitsTitle')">{{ t('searchHits') }}: {{ request.hitCount }}</span>
+                  <span v-if="request.error" class="ehl-meta">{{ t(FAILURE_MESSAGES[request.error.kind]) }} {{ request.error.status ?? '' }}</span>
+                  <span v-if="request.attempts > 1" class="ehl-meta">{{ t('requestAttempts') }}: {{ request.attempts }}</span>
                   <span v-if="request.cached" class="ehl-meta">{{ t('fromCache') }}</span>
                 </span>
               </li>
@@ -159,13 +185,16 @@ function toggle(id: string): void {
                 <span class="ehl-url">
                   {{ request.galleries }} {{ t('galleriesUnit') }}
                   <span class="ehl-subtitle">{{ request.url }}</span>
+                  <span v-if="request.error" class="ehl-subtitle">{{ t(FAILURE_MESSAGES[request.error.kind]) }} {{ request.error.status ?? '' }}</span>
+                  <span v-if="request.failedGalleries > 0" class="ehl-subtitle">{{ t('missingMetadata') }}: {{ request.failedGalleries }}</span>
+                  <span v-if="request.attempts > 1" class="ehl-subtitle">{{ t('requestAttempts') }}: {{ request.attempts }}</span>
                 </span>
               </li>
             </ul>
           </section>
           <p v-if="metadataFromCache > 0" class="ehl-head">{{ metadataFromCache }} {{ t('galleriesUnit') }} · {{ t('fromCache') }}</p>
           <p v-if="requests.length === 0" class="ehl-head">{{ t('noRequests') }}</p>
-          <p v-else-if="sentCount === 0" class="ehl-head">{{ t('nothingSent') }}</p>
+          <p v-else-if="allFromCache" class="ehl-head">{{ t('nothingSent') }}</p>
         </div>
       </div>
       <span v-if="status" class="ehl-status">{{ status }}</span>

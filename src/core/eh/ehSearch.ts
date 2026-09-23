@@ -3,6 +3,8 @@ import { readCategory } from './category'
 import { galleryRef, pageCount } from './ehUrl'
 import type { SearchRequest } from './requestLog'
 import { searchThrottle } from './throttle'
+import { request, RequestError } from './request'
+import { isGalleryId, isNullableNumber, isNullableRating, isNullableString, isRecord, isStrings } from './validation'
 
 export interface SearchHit {
   gid: number
@@ -55,9 +57,37 @@ function postedSeconds(cell: Element | null): number | null {
   return Number.isFinite(parsed) ? Math.round(parsed / 1000) : null
 }
 
+function isEmptySearch(root: Document): boolean {
+  return root.querySelector('#searchbox input[name="f_search"]') !== null
+    && root.querySelector('#toppane + div > p')?.textContent?.trim() === 'No hits found'
+}
+
+function isSearchPage(root: Document): boolean {
+  return root.querySelector('.itg') !== null || isEmptySearch(root)
+}
+
+function isSearchHit(value: unknown): value is SearchHit {
+  if (!isRecord(value)) return false
+  if (!isGalleryId(value.gid)) return false
+  for (const field of ['token', 'href', 'title', 'titleJpn', 'category', 'thumb']) {
+    if (typeof value[field] !== 'string') return false
+  }
+  if (!isStrings(value.tags)) return false
+  if (!isNullableNumber(value.pages)) return false
+  if (!isNullableNumber(value.posted)) return false
+  if (!isNullableRating(value.rating)) return false
+  return isNullableString(value.torrentHref)
+}
+
+function isSearchHits(value: unknown): value is SearchHit[] {
+  return Array.isArray(value) && value.every(isSearchHit)
+}
+
 /** Parse one result page in any of the five EH list modes (Minimal, Minimal+, Compact, Extended, Thumbnail). */
 export function parseSearchResults(html: string): SearchHit[] {
   const root = new DOMParser().parseFromString(html, 'text/html')
+  // 零筆頁沒有 .itg；此處讀原始回應，不受頁面翻譯影響。
+  if (!isSearchPage(root)) throw new RequestError('invalid-response', 'Expected a search results page')
   const rows = root.querySelectorAll<HTMLElement>('.itg > tbody > tr, .itg > tr, .itg .gl1t')
   const hits: SearchHit[] = []
   for (const row of rows) {
@@ -100,12 +130,14 @@ export function parseSearchResults(html: string): SearchHit[] {
  */
 export async function fetchSearch(origin: string, query: string, visibility: SearchVisibility = 'published', force = false): Promise<SearchResponse> {
   const url = searchUrl(origin, query, visibility)
-  const cached = force ? null : await cacheGet<SearchHit[]>(url)
-  if (cached) return { request: { kind: 'search', url, term: query, hitCount: cached.data.length, cached: true }, hits: cached.data, at: cached.at }
-  await searchThrottle.next()
-  const response = await fetch(url, { credentials: 'same-origin' })
-  if (!response.ok) throw new Error(`search failed: HTTP ${response.status}`)
-  const hits = parseSearchResults(await response.text())
-  await cacheSet(url, hits)
-  return { request: { kind: 'search', url, term: query, hitCount: hits.length }, hits, at: Date.now() }
+  const cached = force ? null : await cacheGet(url, isSearchHits)
+  if (cached) return { request: { kind: 'search', url, term: query, hitCount: cached.data.length, cached: true, attempts: 0 }, hits: cached.data, at: cached.at }
+  try {
+    const response = await request(url, { credentials: 'same-origin' }, searchThrottle, async (response) => parseSearchResults(await response.text()))
+    await cacheSet(url, response.data)
+    return { request: { kind: 'search', url, term: query, hitCount: response.data.length, attempts: response.attempts }, hits: response.data, at: Date.now() }
+  } catch (error) {
+    if (!(error instanceof RequestError)) throw error
+    return { request: { kind: 'search', url, term: query, hitCount: null, attempts: error.attempts, error }, hits: [], at: Date.now() }
+  }
 }

@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { parseSearchResults, searchUrl } from './ehSearch'
+import { RequestError } from './request'
 
 const compact = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '__fixtures__', 'search-compact.html'), 'utf-8')
 
@@ -21,8 +22,12 @@ describe('search result parsing', () => {
     expect(hits[1]).toMatchObject({ pages: 6, torrentHref: 'https://e-hentai.org/gallerytorrents.php?gid=1002&t=0b0b0b0b0b' })
   })
 
-  it('returns no hits for a page without a result table', () => {
-    expect(parseSearchResults('<html><body><p>No hits found</p></body></html>')).toEqual([])
+  it('rejects a successful HTTP body that is not a search page', () => {
+    expect(() => parseSearchResults('<html><body><p>Temporarily unavailable</p></body></html>')).toThrow(RequestError)
+  })
+
+  it('accepts a valid empty search page without a result table', () => {
+    expect(parseSearchResults('<div id="toppane"><div id="searchbox"><input name="f_search"></div></div><div><p>No hits found</p></div>')).toEqual([])
   })
 
   it('sends the query as the planner wrote it instead of qualifying a bare phrase', () => {

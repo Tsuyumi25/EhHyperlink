@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseMetadataResponse } from './ehApi'
+import { RequestError } from './request'
 
 // Invented galleries; the response shape follows https://ehwiki.org/wiki/API.
 
@@ -50,9 +51,23 @@ describe('gallery metadata response', () => {
     expect(entries.map((entry) => entry.rating)).toEqual([4.71, null, null])
   })
 
-  it('returns nothing for a body without gmetadata', () => {
-    expect(parseMetadataResponse({ error: 'Invalid request' })).toEqual([])
-    expect(parseMetadataResponse(null)).toEqual([])
+  it('rejects a protocol error rather than treating it as empty metadata', () => {
+    expect(() => parseMetadataResponse({ error: 'Invalid request' })).toThrow(RequestError)
+    expect(() => parseMetadataResponse(null)).toThrow(RequestError)
+    expect(parseMetadataResponse({ gmetadata: [] })).toEqual([])
+  })
+
+  it('isolates invalid optional fields and prevents out-of-range ratings reaching rendering', () => {
+    const entries = parseMetadataResponse({
+      gmetadata: [
+        { gid: 4001, title: 'Work Alpha', tags: [17] },
+        { gid: 4002, title: 'Work Beta', title_jpn: 17 },
+        { gid: 4003, title: 'Work Gamma', category: [] },
+        { gid: 4004, title: 'Work Delta', rating: 6 },
+        { gid: 4005, title: 'Work Epsilon', rating: 5, tags: [] },
+      ],
+    })
+    expect(entries.map((entry) => [entry.gid, entry.rating])).toEqual([[4004, null], [4005, 5]])
   })
 
   it('decodes the HTML entities the API escapes, so both routes read one title', () => {

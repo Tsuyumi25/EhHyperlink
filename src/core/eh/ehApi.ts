@@ -2,6 +2,8 @@ import { cacheGet, cacheSet } from './cache'
 import type { GalleryRef } from './ehUrl'
 import type { MetadataRequest } from './requestLog'
 import { metadataThrottle } from './throttle'
+import { request, RequestError, stopsRequests } from './request'
+import { isGalleryId, isNullableNumber, isNullableRating, isOptionalString, isOptionalStrings, isRating, isRecord, isStrings } from './validation'
 
 /**
  * E-Hentai gallery metadata API (https://ehwiki.org/wiki/API).
@@ -40,18 +42,39 @@ export interface MetadataResponse {
 
 interface ApiEntry {
   gid: number
-  title?: string
+  title: string
   title_jpn?: string
   category?: string
-  posted?: string | number
-  thumb?: string
-  rating?: string | number
+  posted?: unknown
+  thumb?: unknown
+  rating?: unknown
   tags?: string[]
-  error?: string
+  error?: unknown
 }
 
 function isApiEntry(value: unknown): value is ApiEntry {
-  return typeof value === 'object' && value !== null && 'gid' in value && typeof value.gid === 'number'
+  return isRecord(value)
+    && isGalleryId(value.gid)
+    && typeof value.title === 'string'
+    && value.error === undefined
+    && isOptionalString(value.title_jpn)
+    && isOptionalString(value.category)
+    && isOptionalStrings(value.tags)
+}
+
+function isMetadataBody(value: unknown): value is { gmetadata: unknown[] } {
+  return isRecord(value) && Array.isArray(value.gmetadata) && !('error' in value)
+}
+
+function isGalleryMetadata(value: unknown): value is GalleryMetadata {
+  if (!isRecord(value)) return false
+  if (!isGalleryId(value.gid)) return false
+  for (const field of ['title', 'titleJpn', 'category', 'thumb']) {
+    if (typeof value[field] !== 'string') return false
+  }
+  if (!isStrings(value.tags)) return false
+  if (!isNullableNumber(value.posted)) return false
+  return isNullableRating(value.rating)
 }
 
 /**
@@ -85,15 +108,15 @@ function readPosted(value: unknown): number | null {
  */
 function readRating(value: unknown): number | null {
   const rating = typeof value === 'string' ? Number(value) : typeof value === 'number' ? value : Number.NaN
-  return Number.isFinite(rating) && rating > 0 ? rating : null
+  return isRating(rating) ? rating : null
 }
 
 /** Metadata entries out of one API response body; malformed or errored entries are skipped. */
 export function parseMetadataResponse(body: unknown): GalleryMetadata[] {
-  if (typeof body !== 'object' || body === null || !('gmetadata' in body) || !Array.isArray(body.gmetadata)) return []
+  if (!isMetadataBody(body)) throw new RequestError('invalid-response', 'Expected gallery metadata')
   const entries: GalleryMetadata[] = []
   for (const raw of body.gmetadata) {
-    if (!isApiEntry(raw) || raw.error !== undefined || typeof raw.title !== 'string') continue
+    if (!isApiEntry(raw)) continue
     entries.push({
       gid: raw.gid,
       title: decodeEntities(raw.title),
@@ -108,20 +131,26 @@ export function parseMetadataResponse(body: unknown): GalleryMetadata[] {
   return entries
 }
 
-async function requestChunk(refs: readonly GalleryRef[]): Promise<GalleryMetadata[]> {
-  const response = await fetch(API_URL, {
+async function requestChunk(refs: readonly GalleryRef[]): Promise<{ data: GalleryMetadata[]; attempts: number }> {
+  return request(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ method: 'gdata', gidlist: refs.map((ref) => [ref.gid, ref.token]), namespace: 1 }),
+  }, metadataThrottle, async (response) => {
+    let body: unknown
+    try {
+      body = await response.json()
+    } catch (error) {
+      if (error instanceof SyntaxError) throw new RequestError('invalid-response', 'Invalid metadata JSON')
+      throw error
+    }
+    return parseMetadataResponse(body)
   })
-  if (!response.ok) throw new Error(`gallery metadata failed: HTTP ${response.status}`)
-  return parseMetadataResponse(await response.json())
 }
 
 /**
- * Metadata for every ref the API knows, plus one entry per POST that left the
- * browser. A failed chunk drops its galleries and keeps its request: the host
- * was asked either way.
+ * Metadata for every ref the API knows, with failed batches and missing entries
+ * retained in the request log so callers can distinguish incomplete results.
  *
  * The cache is per gallery, so only the refs nobody has asked about are batched.
  * Two books by one creator return overlapping search results, and the second one
@@ -133,7 +162,7 @@ export async function fetchGalleryMetadata(refs: readonly GalleryRef[], force = 
   const missing: GalleryRef[] = []
   let oldest = Number.POSITIVE_INFINITY
   for (const ref of refs) {
-    const cached = force ? null : await cacheGet<GalleryMetadata>(`gid:${ref.gid}`)
+    const cached = force ? null : await cacheGet(`gid:${ref.gid}`, isGalleryMetadata)
     if (cached) {
       metadata.set(ref.gid, cached.data)
       oldest = Math.min(oldest, cached.at)
@@ -141,16 +170,22 @@ export async function fetchGalleryMetadata(refs: readonly GalleryRef[], force = 
   }
   for (let index = 0; index < missing.length; index += GALLERIES_PER_REQUEST) {
     const chunk = missing.slice(index, index + GALLERIES_PER_REQUEST)
-    await metadataThrottle.next()
-    requests.push({ kind: 'metadata', url: API_URL, galleries: chunk.length })
+    const entry: MetadataRequest = { kind: 'metadata', url: API_URL, galleries: chunk.length, attempts: 0, failedGalleries: chunk.length }
+    requests.push(entry)
     try {
-      for (const entry of await requestChunk(chunk)) {
-        metadata.set(entry.gid, entry)
-        await cacheSet(`gid:${entry.gid}`, entry)
-      }
+      const response = await requestChunk(chunk)
+      entry.attempts = response.attempts
+      const expected = new Set(chunk.map((ref) => ref.gid))
+      const accepted = response.data.filter((item) => expected.has(item.gid))
+      for (const item of accepted) metadata.set(item.gid, item)
+      entry.failedGalleries = chunk.filter((ref) => !metadata.has(ref.gid)).length
+      for (const item of accepted) await cacheSet(`gid:${item.gid}`, item)
       oldest = Math.min(oldest, Date.now())
     } catch (error) {
-      console.warn('[EhHyperlink] metadata chunk skipped', error)
+      if (!(error instanceof RequestError)) throw error
+      entry.error = error
+      entry.attempts = error.attempts
+      if (stopsRequests(error)) break
     }
   }
   return { metadata, requests, fromCache: refs.length - missing.length, oldestAt: Number.isFinite(oldest) ? oldest : Date.now() }

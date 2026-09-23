@@ -4,6 +4,7 @@ import { fetchSearch, type SearchHit, type SearchResponse } from './eh/ehSearch'
 import type * as SearchModule from './eh/ehSearch'
 import { gallery } from './corpus/gallery'
 import { hit } from './corpus/matching'
+import { RequestError } from './eh/request'
 
 vi.mock('./eh/ehSearch', async (importOriginal) => ({
   ...(await importOriginal<typeof SearchModule>()),
@@ -40,6 +41,7 @@ function page(term: string, hits: SearchHit[]): SearchResponse {
       term,
       hitCount: hits.length,
       url: `${origin}/?f_search=${encodeURIComponent(term)}`,
+      attempts: 1,
     },
   }
 }
@@ -144,7 +146,7 @@ it('publishes the complete container stage before editions and reuses its metada
   ])
 })
 
-// 後續搜尋失敗不會撤回已交付的原刊；呼叫端能保留結果並另行顯示失敗狀態。
+// 後續搜尋失敗時保留原刊，並把失敗紀錄與部分完成狀態交給呼叫端。
 it('leaves the published containers available when a later search fails', async () => {
   const source = gallery({
     title: '[Artist Alpha] Work Beta (COMIC Alphabeta Monthly Vol. 18)',
@@ -156,12 +158,16 @@ it('leaves the published containers available when a later search fails', async 
     .mockResolvedValueOnce(
       page('COMIC Alphabeta Monthly Vol. 18', [publication]),
     )
-    .mockRejectedValueOnce(new Error('search failed: HTTP 503'))
-  await expect(
-    findEditions(source, origin, [], {
-      onResult: (result) => published.push(result),
-    }),
-  ).rejects.toThrow('search failed: HTTP 503')
+    .mockResolvedValueOnce({
+      ...page('Work Beta', []),
+      request: { ...page('Work Beta', []).request, hitCount: null, attempts: 3, error: new RequestError('http', 'Unavailable', 503) },
+    })
+  const final = await findEditions(source, origin, [], {
+    onResult: (result) => published.push(result),
+  })
+  expect(final.status).toBe('partial')
+  expect(final.containers.map((entry) => entry.gid)).toEqual([21])
+  expect(final.requests.some((request) => request.error?.status === 503)).toBe(true)
   expect(
     published.map((result) => result.containers.map((entry) => entry.gid)),
   ).toEqual([[21]])

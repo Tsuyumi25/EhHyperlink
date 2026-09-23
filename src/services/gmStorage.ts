@@ -2,32 +2,69 @@ import { GM } from '$'
 
 export const hasGM = typeof GM?.getValue === 'function'
 
+const canList = hasGM && typeof GM.listValues === 'function'
+const canDelete = hasGM && typeof GM.deleteValue === 'function'
+
+/**
+ * A storage backend that refuses to answer is a degraded cache, never a reason
+ * to stop: a read that fails reads as nothing stored, a write that fails as a
+ * value this page will have to fetch again.
+ */
+async function degrade<T>(operation: string, run: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await run()
+  } catch (error) {
+    console.warn(`[EhHyperlink] storage ${operation} failed`, error)
+    return fallback
+  }
+}
+
 export async function storageGet(key: string): Promise<string | null> {
-  if (hasGM) return (await GM.getValue<string>(key, '')) || null
-  return localStorage.getItem(key)
+  return degrade(
+    'read',
+    async () => {
+      if (hasGM) return (await GM.getValue<string>(key, '')) || null
+      return localStorage.getItem(key)
+    },
+    null,
+  )
 }
 
 export async function storageSet(key: string, value: string): Promise<void> {
-  if (hasGM) {
-    await GM.setValue(key, value)
-    return
-  }
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    // quota exceeded: settings are small, next save will retry
-  }
+  await degrade(
+    'write',
+    async () => {
+      if (hasGM) {
+        await GM.setValue(key, value)
+        return
+      }
+      localStorage.setItem(key, value)
+    },
+    undefined,
+  )
 }
 
 export async function storageKeys(): Promise<string[]> {
-  if (hasGM && typeof GM.listValues === 'function') return await GM.listValues()
-  return Object.keys(localStorage)
+  return degrade(
+    'list',
+    async () => {
+      if (canList) return await GM.listValues()
+      return Object.keys(localStorage)
+    },
+    [],
+  )
 }
 
 export async function storageRemove(key: string): Promise<void> {
-  if (hasGM && typeof GM.deleteValue === 'function') {
-    await GM.deleteValue(key)
-    return
-  }
-  localStorage.removeItem(key)
+  await degrade(
+    'delete',
+    async () => {
+      if (canDelete) {
+        await GM.deleteValue(key)
+        return
+      }
+      localStorage.removeItem(key)
+    },
+    undefined,
+  )
 }

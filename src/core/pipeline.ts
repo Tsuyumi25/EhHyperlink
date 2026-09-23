@@ -106,7 +106,7 @@ export async function findEditions(
   /**
    * Chapter phrases are an edition phrase plus a counter, so their result set is
    * always a subset of the edition phrase's (257k Manga galleries, 4,706 phrase
-   * pairs, no exception) and only the 25-row first page can hide anything. The
+   * pairs, no exception) and only the first-page limit can hide anything. The
    * source matches its own edition phrase and a chapter cut from it is posted
    * later, so EH's newest-first page still holds every chapter while it holds
    * the source. Census: the source sits on every edition first page 74.6% of

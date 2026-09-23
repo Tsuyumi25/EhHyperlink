@@ -203,7 +203,7 @@ function directPlan(mode: SearchMode, editionTerms: string[], visibility: Search
  *
  * `title:` earns its place twice. A bare phrase is matched against tags as well
  * as titles (ehwiki `Gallery_Searching`), and a work phrase that happens to
- * equal a popular tag then fills the 25-row first page with unrelated galleries
+ * equal a popular tag then fills the first page with unrelated galleries
  * — corpus run: 4.4% of phrases collide with a tag value, and qualifying them
  * puts 16.5% more real hits back on the first page. A cosplayer term is the
  * opposite case and arrives as a finished exact-tag clause: what is wanted is

@@ -101,11 +101,11 @@ export function parseSearchResults(html: string): SearchHit[] {
 export async function fetchSearch(origin: string, query: string, visibility: SearchVisibility = 'published', force = false): Promise<SearchResponse> {
   const url = searchUrl(origin, query, visibility)
   const cached = force ? null : await cacheGet<SearchHit[]>(url)
-  if (cached) return { request: { kind: 'search', url, term: query, cached: true }, hits: cached.data, at: cached.at }
+  if (cached) return { request: { kind: 'search', url, term: query, hitCount: cached.data.length, cached: true }, hits: cached.data, at: cached.at }
   await searchThrottle.next()
   const response = await fetch(url, { credentials: 'same-origin' })
   if (!response.ok) throw new Error(`search failed: HTTP ${response.status}`)
   const hits = parseSearchResults(await response.text())
   await cacheSet(url, hits)
-  return { request: { kind: 'search', url, term: query }, hits, at: Date.now() }
+  return { request: { kind: 'search', url, term: query, hitCount: hits.length }, hits, at: Date.now() }
 }

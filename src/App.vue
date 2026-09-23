@@ -145,7 +145,10 @@ function toggle(id: string): void {
                   {{ request.term }}
                   <span class="ehl-subtitle">{{ request.url }}</span>
                 </a>
-                <span v-if="request.cached" class="ehl-facts"><span class="ehl-meta">{{ t('fromCache') }}</span></span>
+                <span class="ehl-facts">
+                  <span class="ehl-meta" :title="t('searchHitsTitle')">{{ t('searchHits') }}: {{ request.hitCount }}</span>
+                  <span v-if="request.cached" class="ehl-meta">{{ t('fromCache') }}</span>
+                </span>
               </li>
             </ul>
           </section>
@@ -661,7 +664,7 @@ function toggle(id: string): void {
 .ehl-book--3 {
   --ehl-book: hsl(285 50% 62%);
 }
-.ehl-box a {
+.ehl-list a {
   text-decoration: none;
 }
 .ehl-subtitle {

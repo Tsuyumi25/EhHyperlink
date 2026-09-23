@@ -38,6 +38,7 @@ function page(term: string, hits: SearchHit[]): SearchResponse {
     request: {
       kind: 'search',
       term,
+      hitCount: hits.length,
       url: `${origin}/?f_search=${encodeURIComponent(term)}`,
     },
   }

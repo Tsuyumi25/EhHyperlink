@@ -33,6 +33,16 @@ const VIEW_KEY: Record<View, 'viewList' | 'viewCovers'> = {
       <input v-model="settings.showSubtitle" type="checkbox" />
       {{ t('settingSubtitle') }}
     </label>
+    <section class="ehl-settings__perks">
+      <p class="ehl-settings__label">{{ t('pagingPerksTitle') }}</p>
+      <p>{{ t('pagingPerksDescription') }}</p>
+      <p>{{ t('pagingPerkI') }}</p>
+      <p>{{ t('pagingPerkII') }}</p>
+      <div class="ehl-settings__row">
+        <a href="https://e-hentai.org/hathperks.php" target="_blank" rel="noopener">{{ t('hathPerks') }}</a>
+        <a href="https://ehwiki.org/wiki/Hath_Perks" target="_blank" rel="noopener">{{ t('pagingPerksDetails') }}</a>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -71,5 +81,20 @@ const VIEW_KEY: Record<View, 'viewList' | 'viewCovers'> = {
 }
 .ehl-settings__option input {
   margin: 0;
+}
+.ehl-settings__perks {
+  width: min(320px, calc(100vw - 40px));
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ehl-border, currentColor);
+  white-space: normal;
+  line-height: 1.5;
+}
+.ehl-settings__perks p {
+  margin: 0 0 4px;
+}
+.ehl-settings__perks a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 </style>

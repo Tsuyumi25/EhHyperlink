@@ -15,6 +15,7 @@ export interface SearchRequest {
   url: string
   /** complete `f_search` query before URL encoding */
   term: string
+  hitCount: number
   /** answered from the cache; no request left the browser */
   cached?: boolean
 }

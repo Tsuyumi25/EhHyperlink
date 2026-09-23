@@ -37,6 +37,12 @@ const MESSAGES = {
   chaptersTitle: { en: 'Chapters cut from this magazine or tankoubon', zh: '從這本雜誌或單行本切出來的作品', ja: 'この掲載誌・単行本から切り出された作品' },
   requestsTitle: { en: 'URLs this script requested for this gallery', zh: '這個腳本為這本畫廊發出的請求', ja: 'このギャラリーのために送ったリクエスト' },
   searchRequests: { en: 'Search pages', zh: '搜尋頁', ja: '検索ページ' },
+  searchHits: { en: 'Hits', zh: 'Hits', ja: 'Hits' },
+  searchHitsTitle: {
+    en: 'Galleries returned on this search page, before filtering',
+    zh: '此搜尋頁回傳的圖庫數，篩選前',
+    ja: 'この検索ページで取得したギャラリー数（絞り込み前）',
+  },
   metadataRequests: { en: 'Metadata API', zh: 'Metadata API', ja: 'メタデータ API' },
   galleriesUnit: { en: 'galleries', zh: '本', ja: '件' },
   noRequests: { en: 'Nothing was requested', zh: '一次請求都沒有發出', ja: 'リクエストは送っていません' },
@@ -61,6 +67,28 @@ const MESSAGES = {
   settingView: { en: 'View', zh: '檢視', ja: '表示' },
   viewList: { en: 'List', zh: '清單', ja: 'リスト' },
   viewCovers: { en: 'Covers', zh: '封面', ja: '表紙' },
+  pagingPerksTitle: {
+    en: 'Paging Enlargement',
+    zh: 'Paging Enlargement',
+    ja: 'Paging Enlargement',
+  },
+  pagingPerksDescription: {
+    en: 'Purchase this perk to reduce the number of requests.',
+    zh: '可購買此 perk 以減少請求次數。',
+    ja: 'この特典を購入すると、リクエスト回数を減らせます。',
+  },
+  pagingPerkI: {
+    en: 'I: 50/page · 500 Hath',
+    zh: 'I：50 筆／頁 · 500 Hath',
+    ja: 'I：50件/ページ · 500 Hath',
+  },
+  pagingPerkII: {
+    en: 'II: 100/page · +1,000 Hath',
+    zh: 'II：100 筆／頁 · +1,000 Hath',
+    ja: 'II：100件/ページ · +1,000 Hath',
+  },
+  hathPerks: { en: 'Hath Perks', zh: 'Hath Perks', ja: 'Hath Perks' },
+  pagingPerksDetails: { en: 'Details', zh: '說明', ja: '詳細' },
 } as const
 
 export type MessageKey = keyof typeof MESSAGES

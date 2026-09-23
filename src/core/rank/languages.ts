@@ -1,17 +1,17 @@
 export interface Language {
   /** ehwiki language tag name, e.g. `chinese` */
   value: string
-  /** short badge shown in the flag row */
+  /** short visual identifier shown in language badges */
   code: string
   name: { en: string; zh: string; ja: string }
 }
 
 /** Languages with dedicated badge codes and display names; anything else falls back to `fallbackLanguage`. */
 export const LANGUAGES: Language[] = [
-  { value: 'chinese', code: 'ZH', name: { en: 'Chinese', zh: '中文', ja: '中国語' } },
-  { value: 'japanese', code: 'JA', name: { en: 'Japanese', zh: '日文', ja: '日本語' } },
+  { value: 'chinese', code: '中', name: { en: 'Chinese', zh: '中文', ja: '中国語' } },
+  { value: 'japanese', code: 'あ', name: { en: 'Japanese', zh: '日文', ja: '日本語' } },
   { value: 'english', code: 'EN', name: { en: 'English', zh: '英文', ja: '英語' } },
-  { value: 'korean', code: 'KO', name: { en: 'Korean', zh: '韓文', ja: '韓国語' } },
+  { value: 'korean', code: '한', name: { en: 'Korean', zh: '韓文', ja: '韓国語' } },
   { value: 'spanish', code: 'ES', name: { en: 'Spanish', zh: '西班牙文', ja: 'スペイン語' } },
   { value: 'russian', code: 'RU', name: { en: 'Russian', zh: '俄文', ja: 'ロシア語' } },
   { value: 'french', code: 'FR', name: { en: 'French', zh: '法文', ja: 'フランス語' } },

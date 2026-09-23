@@ -5,6 +5,7 @@ import { displayTitle, otherTitle, settings, subtitle } from '@/settings'
 import { locale, type MessageKey, t } from '@/i18n'
 import StarRating from '@/components/StarRating.vue'
 import TagList from '@/components/TagList.vue'
+import LanguageBadge from '@/components/LanguageBadge.vue'
 
 /** Flag labels, one key each: the set is small and closed, so a table beats a branch. */
 const FLAG_LABELS: Record<EditionFlag, MessageKey> = {
@@ -78,7 +79,7 @@ function showPreview(release: Edition | null): void {
   <div ref="listEl" class="ehl-list">
     <section v-for="group in groups" :key="group.language.value" class="ehl-section">
       <h4 class="ehl-head">
-        <span class="ehl-code">{{ group.language.code }}</span>
+        <LanguageBadge :language="group.language" />
         {{ group.language.name[locale] }}
         <span class="ehl-count">{{ group.books.length }}</span>
       </h4>

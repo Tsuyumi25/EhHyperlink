@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import GroupList from '@/components/GroupList.vue'
+import LanguageBadge from '@/components/LanguageBadge.vue'
 import SettingsPopup from '@/components/SettingsPopup.vue'
 import { Activity, CircleSlash2, RefreshCw, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY, type MessageKey } from '@/i18n'
@@ -63,12 +64,12 @@ const RELATED_TITLES: Record<JumpResult['plan']['mode'], MessageKey> = {
   realporn: 'directRelatedTitle',
 }
 
-/** One badge per meaning; the edition badge reads as the language codes found. */
+/** One badge per meaning; the edition badge shows the languages found. */
 const badges = computed<Badge[]>(() => {
   if (!result.value) return []
   const list: Badge[] = []
   if (result.value.editions.length > 0) {
-    list.push({ id: 'editions', label: result.value.editions.map((group) => group.language.code).join(' · '), title: t('editionsTitle'), groups: result.value.editions })
+    list.push({ id: 'editions', label: result.value.editions.map((group) => group.language.name[locale]).join(' · '), title: t('editionsTitle'), groups: result.value.editions })
   }
   if (result.value.series.length > 0) list.push({ id: 'series', label: t('series'), title: t('seriesTitle'), groups: result.value.series })
   if (result.value.related.length > 0) {
@@ -167,7 +168,12 @@ function toggle(id: string): void {
       <span v-if="status" class="ehl-status">{{ status }}</span>
       <template v-if="result">
         <div v-for="badge in badges" :key="badge.id" class="ehl-unit" :class="{ 'ehl-unit--open': open === badge.id }" @mouseenter="hovered = badge.id" @mouseleave="hovered = null">
-          <button type="button" class="ehl-badge" :class="{ 'ehl-tab--pinned': pinned === badge.id }" :title="badge.title" @click="toggle(badge.id)">{{ badge.label }}</button>
+          <button type="button" class="ehl-badge" :class="{ 'ehl-tab--pinned': pinned === badge.id }" :title="badge.title" :aria-label="badge.label" @click="toggle(badge.id)">
+            <template v-if="badge.id === 'editions'">
+              <LanguageBadge v-for="group in badge.groups" :key="group.language.value" :language="group.language" />
+            </template>
+            <template v-else>{{ badge.label }}</template>
+          </button>
           <GroupList :groups="badge.groups" />
         </div>
         <div v-if="result.containers.length > 0" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'containers' }" @mouseenter="hovered = 'containers'" @mouseleave="hovered = null">
@@ -271,6 +277,7 @@ function toggle(id: string): void {
   border-left: 1px solid var(--ehl-border, currentColor);
 }
 .ehl-badge {
+  gap: 4px;
   padding: 0 8px;
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -360,14 +367,38 @@ function toggle(id: string): void {
   font-weight: 700;
   line-height: 18px;
 }
-.ehl-code {
-  display: inline-block;
+.ehl-language {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
   min-width: 22px;
-  margin-right: 4px;
+  height: 18px;
   padding: 0 4px;
-  text-align: center;
-  border: 1px solid currentColor;
   border-radius: 3px;
+  color: #fff;
+  background: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+.ehl-language[data-language='chinese'] {
+  background: #be185d;
+}
+.ehl-language[data-language='japanese'] {
+  background: #7c3aed;
+}
+.ehl-language[data-language='english'] {
+  background: #b45309;
+}
+.ehl-language[data-language='korean'] {
+  background: #2563eb;
+}
+.ehl-head > .ehl-language {
+  margin-right: 4px;
 }
 .ehl-count {
   margin-left: 4px;

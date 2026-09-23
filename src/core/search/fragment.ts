@@ -101,12 +101,16 @@ function cjkSlices(text: string): string[] {
   const half = Math.max(SLICE, Math.floor(text.length / 2))
   const lead = text.slice(0, half)
   const trail = text.slice(-half)
-  const first = firstHanPair(lead) ?? text.slice(0, SLICE)
-  const last = lastHanPair(trail) ?? text.slice(-SLICE)
-  return [
-    NUMERIC.test(first) ? text.slice(0, 3) : first,
-    NUMERIC.test(last) ? text.slice(-3) : last,
-  ]
+  let first = firstHanPair(lead) ?? text.slice(0, SLICE)
+  let last = lastHanPair(trail) ?? text.slice(-SLICE)
+  for (let length = SLICE + 1; isShortNumeric(first); length += 1) first = text.slice(0, length)
+  for (let length = SLICE + 1; isShortNumeric(last); length += 1) last = text.slice(-length)
+  return [first, last]
+}
+
+function isShortNumeric(slice: string): boolean {
+  const token = slice.trim()
+  return NUMERIC.test(token) && token.length < 3
 }
 
 function firstHanPair(text: string): string | null {

@@ -1,10 +1,12 @@
-import { cjkLetter, compile, han, letter, whitespaceRun } from '../title/pattern'
+import { oneOrMore } from 'magic-regexp'
+import { cjkLetter, compile, digit, end, han, letter, start, whitespaceRun } from '../title/pattern'
 
 const HAN_PAIR = compile(han.times(2))
 const CJK = compile(cjkLetter)
 const HAS_LETTER = compile(letter)
+const NUMERIC = compile(start.and(oneOrMore(digit)).and(end))
 
-/** Characters in one CJK slice. Two is what the creator scope can afford. */
+/** Default CJK slice length. Two is what the creator scope can afford. */
 const SLICE = 2
 
 /**
@@ -68,7 +70,8 @@ const UNINDEXED = new Set([
 ])
 
 function indexable(token: string): boolean {
-  return !UNINDEXED.has(token.toLowerCase())
+  const minimum = NUMERIC.test(token) ? 3 : SLICE
+  return !UNINDEXED.has(token.toLowerCase()) && token.length >= minimum
 }
 
 /**
@@ -80,7 +83,7 @@ function indexable(token: string): boolean {
  * One usable word yields one request, not two.
  */
 function tokenSlices(tokens: readonly string[]): string[] {
-  const usable = tokens.filter((token) => indexable(token) && token.length >= SLICE)
+  const usable = tokens.filter(indexable)
   if (usable.length === 0) return [tokens.join(' ')]
   const half = Math.ceil(usable.length / 2)
   return [longest(usable.slice(0, half)), longest(usable.slice(half))]
@@ -98,7 +101,12 @@ function cjkSlices(text: string): string[] {
   const half = Math.max(SLICE, Math.floor(text.length / 2))
   const lead = text.slice(0, half)
   const trail = text.slice(-half)
-  return [firstHanPair(lead) ?? lead.slice(0, SLICE), lastHanPair(trail) ?? trail.slice(-SLICE)]
+  const first = firstHanPair(lead) ?? text.slice(0, SLICE)
+  const last = lastHanPair(trail) ?? text.slice(-SLICE)
+  return [
+    NUMERIC.test(first) ? text.slice(0, 3) : first,
+    NUMERIC.test(last) ? text.slice(-3) : last,
+  ]
 }
 
 function firstHanPair(text: string): string | null {

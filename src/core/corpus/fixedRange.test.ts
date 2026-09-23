@@ -36,3 +36,23 @@ search({
   title: 'Work Beta',
   tags: ['artist:artist_alpha', 'female:x'],
 }).expect({ scope: 'a:"artist alpha$"', fixedRange: true })
+
+search({
+  title: '[Circle Alpha] 2025甲乙',
+  tags: ['artist:artistalpha'],
+}).expect({ editionTerms: ['202', '甲乙'] })
+
+search({
+  title: '[Circle Alpha] 20甲乙',
+  tags: ['artist:artistalpha'],
+}).expect({ editionTerms: ['20甲', '甲乙'] })
+
+search({
+  title: '[Circle Alpha] 20 Alpha',
+  tags: ['artist:artistalpha'],
+}).expect({ editionTerms: ['Alpha'] })
+
+search({
+  title: '[Circle Alpha] 2025 Alpha',
+  tags: ['artist:artistalpha'],
+}).expect({ editionTerms: ['2025', 'Alpha'] })

@@ -57,15 +57,6 @@ function postedSeconds(cell: Element | null): number | null {
   return Number.isFinite(parsed) ? Math.round(parsed / 1000) : null
 }
 
-function isEmptySearch(root: Document): boolean {
-  return root.querySelector('#searchbox input[name="f_search"]') !== null
-    && root.querySelector('#toppane + div > p')?.textContent?.trim() === 'No hits found'
-}
-
-function isSearchPage(root: Document): boolean {
-  return root.querySelector('.itg') !== null || isEmptySearch(root)
-}
-
 function isSearchHit(value: unknown): value is SearchHit {
   if (!isRecord(value)) return false
   if (!isGalleryId(value.gid)) return false
@@ -86,8 +77,6 @@ function isSearchHits(value: unknown): value is SearchHit[] {
 /** Parse one result page in any of the five EH list modes (Minimal, Minimal+, Compact, Extended, Thumbnail). */
 export function parseSearchResults(html: string): SearchHit[] {
   const root = new DOMParser().parseFromString(html, 'text/html')
-  // 零筆頁沒有 .itg；此處讀原始回應，不受頁面翻譯影響。
-  if (!isSearchPage(root)) throw new RequestError('invalid-response', 'Expected a search results page')
   const rows = root.querySelectorAll<HTMLElement>('.itg > tbody > tr, .itg > tr, .itg .gl1t')
   const hits: SearchHit[] = []
   for (const row of rows) {

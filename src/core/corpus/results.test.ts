@@ -228,6 +228,17 @@ relations({
   ],
 }).expect({ editions: [1, 4, 5], series: [2, 3], related: [] })
 
+relations({
+  source: {
+    title: '[Artist Alpha] Work Beta #6',
+    tags: ['artist:artist_alpha'],
+  },
+  hits: [
+    { gid: 1, title: '[Artist Alpha] Work Beta Ch. 6', tags: ['artist:artist_alpha'] },
+    { gid: 2, title: '[Artist Alpha] Work Beta #7', tags: ['artist:artist_alpha'] },
+  ],
+}).expect({ editions: [1], series: [2], related: [] })
+
 // 同一創作者、標題在括號裡點名了這部作品的，算系列；tag 或標題的創作者區塊都算數。
 // 同一創作者但沒有任何關係成立的那本，在固定範圍裡落到 related
 relations({

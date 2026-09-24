@@ -56,3 +56,9 @@ search({
   title: '[Circle Alpha] 2025 Alpha',
   tags: ['artist:artistalpha'],
 }).expect({ editionTerms: ['2025', 'Alpha'] })
+
+search({
+  title: '[Circle Alpha] Work Beta #6',
+  titleJpn: '[圓環甲] 作品甲乙＃６',
+  tags: ['artist:artist_alpha'],
+}).expect({ editionTerms: ['作品', 'Beta'] })

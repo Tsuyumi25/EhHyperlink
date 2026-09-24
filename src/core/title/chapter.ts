@@ -83,6 +83,11 @@ const latinChapter = standalone(
     .and(counter),
 )
 
+const hashChapter = exactly('#')
+  .and(optionalSpace)
+  .and(counter)
+  .notBefore(anyOf(letter, digit))
+
 /** `第3話`, `第1-7話`, `第8巻`, `第三話`, `第十二巻`. */
 const cjkChapter = exactly('第')
   .and(anyOf(counter, cjkCounter))
@@ -142,23 +147,14 @@ const romajiSeriesWord = anyOf(
 const seriesWord = anyOf(kanjiSeriesWord, romajiSeriesWord)
 
 /**
- * Labelled markers, read wherever they sit — the label settles what the number
- * means.
- */
-const CHAPTER_MARKER = compile(
-  optionalSpace.and(anyOf(latinChapter, cjkChapter)),
-  ['g', 'i'],
-)
-
-/**
- * Where a search phrase ends. Series words join the labelled forms here but not
- * in `CHAPTER_MARKER`: removing one mid-word and joining the halves produces
+ * Where a search phrase ends. Removing a mid-word series marker and joining the
+ * halves produces
  * text no title contained (`作品乙ー後編ー` would read `作品乙ー ー`, and the
  * counter difference `relation.ts` takes would swallow the whole title), while
  * cutting at it yields `作品乙ー`, a prefix of the original.
  */
 const CUT_POINT = compile(
-  optionalSpace.and(anyOf(latinChapter, cjkChapter, seriesWord)),
+  optionalSpace.and(anyOf(latinChapter, hashChapter, cjkChapter, seriesWord)),
   ['g', 'i'],
 )
 

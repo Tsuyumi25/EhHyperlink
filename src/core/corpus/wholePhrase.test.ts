@@ -198,6 +198,14 @@ workPhrase('作品丙 第8巻').expect('作品丙')
 workPhrase('Work Gamma Ch.3').expect('Work Gamma')
 workPhrase('Chapter 3 Alpha Beta').expect('Alpha Beta')
 
+workAndPart('Work Beta #6').expect({ phrase: 'Work Beta', counter: '6' })
+workAndPart('作品乙#6').expect({ phrase: '作品乙', counter: '6' })
+workAndPart('#6 Work Beta').expect({ phrase: 'Work Beta', counter: '6' })
+workAndPart('Work Beta # 6.5 Subtitle Alpha').expect({ phrase: 'Work Beta', counter: '6.5' })
+workAndPart('Work Beta #1-6').expect({ phrase: 'Work Beta', counter: '1-6' })
+workAndPart('Work Beta #6Gamma').expect({ phrase: 'Work Beta #6Gamma', counter: '' })
+workAndPart('Work Beta #2025').expect({ phrase: 'Work Beta #2025', counter: '' })
+
 // 語料統計出的其他計數標籤
 workAndPart('Work Beta part2').expect({ phrase: 'Work Beta', counter: '2' })
 workPhrase('Work Beta - part 1').expect('Work Beta')

@@ -6,10 +6,6 @@ export function isStrings(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string')
 }
 
-export function isOptionalString(value: unknown): value is string | undefined {
-  return value === undefined || typeof value === 'string'
-}
-
 export function isGalleryId(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
@@ -28,8 +24,4 @@ export function isNullableRating(value: unknown): value is number | null {
 
 export function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
-}
-
-export function isOptionalStrings(value: unknown): value is string[] | undefined {
-  return value === undefined || isStrings(value)
 }

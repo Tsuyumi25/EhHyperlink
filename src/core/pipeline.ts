@@ -1,8 +1,7 @@
 import { matchContainers, matchExtractedChapters } from './search/container'
-import { dedupe, type EditionGroup, enrichHits, groupByLanguage, scoreEditions, toEdition } from './rank/edition'
-import { fetchGalleryMetadata, type MetadataResponse } from './eh/ehApi'
+import { dedupe, type EditionGroup, groupByLanguage, scoreEditions, toEdition } from './rank/edition'
 import { fetchSearch, type SearchHit, type SearchResponse } from './eh/ehSearch'
-import { requestStopsRun, resultStatus, type SentRequest } from './eh/requestLog'
+import { requestStopsRun, resultStatus, type SearchRequest } from './eh/requestLog'
 import type { SourceGallery } from './eh/galleryPage'
 import { planSearch, queryOf, seriesQueriesOf, type SearchPlan } from './search/searchPlan'
 import { hasAiGeneratedTag } from './rank/titleSimilarity'
@@ -10,15 +9,13 @@ import { sweepCache } from './eh/cache'
 import { selectDiscoveries } from './search/discovery'
 
 export type { Book, Edition, EditionFlag, EditionGroup } from './rank/edition'
-export type { MetadataRequest, SearchRequest, SentRequest } from './eh/requestLog'
+export type { SearchRequest } from './eh/requestLog'
 
 export interface JumpResult {
   plan: SearchPlan
   status: 'complete' | 'partial' | 'failed'
   /** every request this run sent, in send order; empty when the planner sent none */
-  requests: SentRequest[]
-  /** galleries the metadata cache answered for; no request left for these */
-  metadataFromCache: number
+  requests: SearchRequest[]
   /** unix ms of the oldest response in this result: how old what the reader sees is */
   dataAt: number
   /** the same book in other languages / releases, grouped by language */
@@ -49,7 +46,7 @@ export interface FindOptions {
 }
 
 /**
- * plan → search → enrich → classify → group.
+ * plan → search → classify → group.
  * Every step is a call into the module that owns that rule; nothing here decides
  * what a title means.
  */
@@ -63,7 +60,7 @@ export async function findEditions(
   // stale entries from an earlier build or an expired day; nothing waits on it
   void sweepCache().catch(() => {})
   if (hasAiGeneratedTag(source.tags)) {
-    return { plan, status: 'complete', requests: [], metadataFromCache: 0, dataAt: Date.now(), editions: [], series: [], related: [], chapters: [], containers: [] }
+    return { plan, status: 'complete', requests: [], dataAt: Date.now(), editions: [], series: [], related: [], chapters: [], containers: [] }
   }
   const seriesQueries = plan.mode === 'work' ? seriesQueriesOf(source) : []
 
@@ -71,7 +68,7 @@ export async function findEditions(
   // from inside a `Promise.all` would send the whole batch at once.
   let done = 0
   let total = plan.editionTerms.length + plan.containerTerms.length + seriesQueries.length
-  const requests: SentRequest[] = []
+  const requests: SearchRequest[] = []
   const search = async (queries: readonly string[]): Promise<SearchResponse[]> => {
     const pages: SearchResponse[] = []
     for (const query of queries) {
@@ -84,24 +81,16 @@ export async function findEditions(
     }
     return pages
   }
-  const loadMetadata = async (hits: readonly SearchHit[]): Promise<MetadataResponse> => {
-    if (requests.some(requestStopsRun)) return { metadata: new Map(), requests: [], fromCache: 0, oldestAt: Date.now() }
-    return fetchGalleryMetadata(hits.map(({ gid, token }) => ({ gid, token })), force)
-  }
   onProgress?.({ done, total })
   const containerPages = await search(plan.containerTerms.map((term) => queryOf(plan, term)))
   const containerHits = dedupe(containerPages.flatMap((page) => page.hits), source.gid)
-  const containerMeta = await loadMetadata(containerHits)
-  const metadata = containerMeta.metadata
-  requests.push(...containerMeta.requests)
-  const containers = matchContainers(plan.containerNames, enrichHits(containerHits, metadata))
+  const containers = matchContainers(plan.containerNames, containerHits)
   if (plan.containerTerms.length > 0) {
     onResult?.({
       plan,
       status: resultStatus(requests),
       requests: [...requests],
-      metadataFromCache: containerMeta.fromCache,
-      dataAt: Math.min(containerMeta.oldestAt, ...containerPages.map((page) => page.at)),
+      dataAt: containerPages.length > 0 ? Math.min(...containerPages.map((page) => page.at)) : Date.now(),
       editions: [],
       series: [],
       related: [],
@@ -132,38 +121,28 @@ export async function findEditions(
   }
   const candidates = new Map<number, SearchHit>()
   const searchPages = [...containerPages]
-  let metadataFromCache = containerMeta.fromCache
-  let oldestMetadataAt = containerMeta.oldestAt
-  const resultFor = async (pages: readonly SearchResponse[]): Promise<JumpResult> => {
-    const missing: SearchHit[] = []
+  const resultFor = (pages: readonly SearchResponse[]): JumpResult => {
     for (const page of pages) {
       for (const hit of page.hits) {
         if (hit.gid === source.gid) continue
         if (candidates.has(hit.gid)) continue
         candidates.set(hit.gid, hit)
-        if (!metadata.has(hit.gid)) missing.push(hit)
       }
     }
     searchPages.push(...pages)
-    const meta = await loadMetadata(missing)
-    for (const [gid, entry] of meta.metadata) metadata.set(gid, entry)
-    requests.push(...meta.requests)
-    metadataFromCache += meta.fromCache
-    oldestMetadataAt = Math.min(oldestMetadataAt, meta.oldestAt)
-    const enriched = enrichHits([...candidates.values()], metadata)
+    const hits = [...candidates.values()]
 
-    const chapters = plan.isContainerCandidate ? matchExtractedChapters(source, enriched) : []
+    const chapters = plan.isContainerCandidate ? matchExtractedChapters(source, hits) : []
     const chapterGids = new Set(chapters.map((hit) => hit.gid))
     const { editions, series, related } = plan.mode === 'work'
-      ? scoreEditions(source, enriched.filter((hit) => !chapterGids.has(hit.gid)), plan.fixedRange)
-      : { editions: [], series: [], related: selectDiscoveries(source, enriched).map((hit) => toEdition(hit, null)) }
-    const dataAt = Math.min(oldestMetadataAt, ...searchPages.map((page) => page.at))
+      ? scoreEditions(source, hits.filter((hit) => !chapterGids.has(hit.gid)), plan.fixedRange)
+      : { editions: [], series: [], related: selectDiscoveries(source, hits).map((hit) => toEdition(hit, null)) }
+    const dataAt = Math.min(...searchPages.map((page) => page.at))
 
     return {
       plan,
       status: resultStatus(requests),
       requests: [...requests],
-      metadataFromCache,
       dataAt: Number.isFinite(dataAt) ? dataAt : Date.now(),
       editions: groupByLanguage(editions, priority),
       series: groupByLanguage(series, priority),
@@ -174,7 +153,7 @@ export async function findEditions(
   }
 
   const ordinaryPages = [...editionPages, ...chapterPages]
-  const ordinary = await resultFor(ordinaryPages)
+  const ordinary = resultFor(ordinaryPages)
   if (seriesQueries.length === 0) return ordinary
   if (requests.some(requestStopsRun)) return ordinary
   if (ordinaryPages.length > 0) onResult?.(ordinary)

@@ -62,7 +62,7 @@ function newestFirst(left: Revision, right: Revision): number {
 }
 
 /**
- * One listing avoids rescanning storage for every metadata entry. Local writes
+ * One listing avoids rescanning storage for every search response. Local writes
  * update it; later writes from other tabs become visible on the next page load.
  * Until then this page may reuse an older valid revision or fetch on a miss.
  */

@@ -6,7 +6,7 @@ import SettingsPopup from '@/components/SettingsPopup.vue'
 import { Activity, CircleSlash2, RefreshCw, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY, type MessageKey } from '@/i18n'
 import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
-import { findEditions, type EditionGroup, type JumpResult, type MetadataRequest, type SearchProgress, type SearchRequest } from '@/core/pipeline'
+import { findEditions, type EditionGroup, type JumpResult, type SearchProgress, type SearchRequest } from '@/core/pipeline'
 import { displayTitle, subtitle } from '@/settings'
 import type { FailureKind } from '@/core/eh/request'
 import { requestFailed } from '@/core/eh/requestLog'
@@ -97,12 +97,8 @@ const badges = computed<Badge[]>(() => {
   return list
 })
 
-/** The request panel reads the two kinds apart; each keeps the order they were sent in. */
-const requests = computed(() => result.value?.requests ?? [])
-const searchRequests = computed(() => requests.value.filter((request): request is SearchRequest => request.kind === 'search'))
-const metadataRequests = computed(() => requests.value.filter((request): request is MetadataRequest => request.kind === 'metadata'))
-/** Galleries the cache answered for; the API never heard of them this run. */
-const metadataFromCache = computed(() => result.value?.metadataFromCache ?? 0)
+/** The request panel lists the search pages in the order they were sent. */
+const requests = computed<readonly SearchRequest[]>(() => result.value?.requests ?? [])
 /**
  * Requests that left the browser. A cached search is listed in the panel but
  * counts as nothing here, which is what the icon and the empty-state line read.
@@ -161,10 +157,10 @@ function toggle(id: string): void {
               {{ t('refetch') }}
             </button>
           </h4>
-          <section v-if="searchRequests.length > 0" class="ehl-section">
-            <h4 class="ehl-head">{{ t('searchRequests') }}<span class="ehl-count">{{ searchRequests.length }}</span></h4>
+          <section v-if="requests.length > 0" class="ehl-section">
+            <h4 class="ehl-head">{{ t('searchRequests') }}<span class="ehl-count">{{ requests.length }}</span></h4>
             <ul>
-              <li v-for="request in searchRequests" :key="request.url">
+              <li v-for="request in requests" :key="request.url">
                 <a class="ehl-url" :href="request.url" target="_blank" rel="noopener">
                   {{ request.term }}
                   <span class="ehl-subtitle">{{ request.url }}</span>
@@ -178,21 +174,6 @@ function toggle(id: string): void {
               </li>
             </ul>
           </section>
-          <section v-if="metadataRequests.length > 0" class="ehl-section">
-            <h4 class="ehl-head">{{ t('metadataRequests') }}<span class="ehl-count">{{ metadataRequests.length }}</span></h4>
-            <ul>
-              <li v-for="(request, index) in metadataRequests" :key="index">
-                <span class="ehl-url">
-                  {{ request.galleries }} {{ t('galleriesUnit') }}
-                  <span class="ehl-subtitle">{{ request.url }}</span>
-                  <span v-if="request.error" class="ehl-subtitle">{{ t(FAILURE_MESSAGES[request.error.kind]) }} {{ request.error.status ?? '' }}</span>
-                  <span v-if="request.failedGalleries > 0" class="ehl-subtitle">{{ t('missingMetadata') }}: {{ request.failedGalleries }}</span>
-                  <span v-if="request.attempts > 1" class="ehl-subtitle">{{ t('requestAttempts') }}: {{ request.attempts }}</span>
-                </span>
-              </li>
-            </ul>
-          </section>
-          <p v-if="metadataFromCache > 0" class="ehl-head">{{ metadataFromCache }} {{ t('galleriesUnit') }} · {{ t('fromCache') }}</p>
           <p v-if="requests.length === 0" class="ehl-head">{{ t('noRequests') }}</p>
           <p v-else-if="allFromCache" class="ehl-head">{{ t('nothingSent') }}</p>
         </div>
@@ -470,7 +451,7 @@ function toggle(id: string): void {
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
 /* The space a cover gets, and nothing drawn: it holds the column open for a gallery
-   the metadata API handed no cover for, and gives the cover inside it something to be
+   the search page supplied no cover for, and gives the cover inside it something to be
    positioned against. The width comes off the same `em` as the row's height, at the
    5:7 an EH cover runs, so a standard cover very nearly fills it. */
 .ehl-thumb {

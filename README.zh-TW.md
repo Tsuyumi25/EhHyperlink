@@ -8,6 +8,8 @@
 
 需要 [Tampermonkey](https://www.tampermonkey.net/) 或相容的 userscript manager。
 
+另需安裝 **Eh View Refined**，並將它排在 EhHyperlink 之前執行。EhHyperlink 透過 Extended search request 取得圖庫 metadata；Eh View Refined 會在網站維持 Extended 模式的同時模擬其他原生排版，保留使用者選擇的瀏覽方式。
+
 - [ ] Sleazy Fork
 - [ ] GitHub Releases
 

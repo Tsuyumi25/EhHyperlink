@@ -12,32 +12,15 @@ export interface SearchRequest {
   cached?: boolean
 }
 
-export interface MetadataRequest {
-  kind: 'metadata'
-  url: string
-  /** galleries asked for in this POST body; the API takes 25 at a time */
-  galleries: number
-  attempts: number
-  failedGalleries: number
-  error?: RequestError
+export function requestFailed(entry: SearchRequest): boolean {
+  return entry.error !== undefined
 }
 
-export type SentRequest = SearchRequest | MetadataRequest
-
-export function requestFailed(entry: SentRequest): boolean {
-  if (entry.error) return true
-  return entry.kind === 'metadata' ? entry.failedGalleries > 0 : false
-}
-
-export function requestStopsRun(entry: SentRequest): boolean {
+export function requestStopsRun(entry: SearchRequest): boolean {
   return entry.error ? stopsRequests(entry.error) : false
 }
 
-function completedSearch(entry: SentRequest): boolean {
-  return entry.kind === 'search' && !entry.error
-}
-
-export function resultStatus(requests: readonly SentRequest[]): 'complete' | 'partial' | 'failed' {
+export function resultStatus(requests: readonly SearchRequest[]): 'complete' | 'partial' | 'failed' {
   if (!requests.some(requestFailed)) return 'complete'
-  return requests.some(completedSearch) ? 'partial' : 'failed'
+  return requests.some((entry) => !entry.error) ? 'partial' : 'failed'
 }

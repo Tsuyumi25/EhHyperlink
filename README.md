@@ -8,6 +8,8 @@ Jump from an E-Hentai / ExHentai gallery to its other language editions, its ser
 
 Requires [Tampermonkey](https://www.tampermonkey.net/) or a compatible userscript manager.
 
+Also requires **Eh View Refined**, placed before EhHyperlink in the userscript execution order. EhHyperlink uses Extended search requests for gallery metadata; Eh View Refined preserves the user's chosen layout by simulating other native views while the site stays in Extended mode.
+
 - [ ] Sleazy Fork
 - [ ] GitHub Releases
 

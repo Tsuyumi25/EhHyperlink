@@ -1,6 +1,5 @@
 import { analyzeTitle, TITLE_BAR } from '../title/titleStructure'
 import { detectLanguage } from './detectLanguage'
-import type { GalleryMetadata } from '../eh/ehApi'
 import { normalizeMarkerText } from '../title/titleMarkers'
 import { parseCjkNumeral } from '../title/cjkNumeral'
 import { readWorkText } from '../title/chapter'
@@ -67,26 +66,6 @@ export function dedupe(hits: readonly SearchHit[], excludeGid: number): SearchHi
   return unique
 }
 
-/**
- * Search rows carry one title field and, in some list modes, no tags; the
- * metadata API fills those, plus the cover and rating no list mode hands over
- * in a usable form.
- */
-export function enrichHits(hits: readonly SearchHit[], metadata: ReadonlyMap<number, GalleryMetadata>): SearchHit[] {
-  return hits.map((hit) => {
-    const meta = metadata.get(hit.gid)
-    if (!meta) return hit
-    return {
-      ...hit,
-      title: meta.title || hit.title,
-      titleJpn: meta.titleJpn,
-      tags: meta.tags.length > 0 ? meta.tags : hit.tags,
-      posted: meta.posted ?? hit.posted,
-      thumb: meta.thumb || hit.thumb,
-      rating: meta.rating ?? hit.rating,
-    }
-  })
-}
 
 /**
  * Numeric value of a counter, for ordering: `02` reads 2 and `1-5` reads 1, so a
@@ -119,7 +98,7 @@ function orderOf(edition: Edition): { number: number | null; posted: number } {
  * Reading order: the part number decides when both rows carry one, and the
  * upload date decides otherwise — which is also what orders the releases of one
  * book, and the parts of a series whose markers are words rather than numbers
- * (`前編` was posted before `後編`). A row the metadata API never answered for
+ * (`前編` was posted before `後編`). A row without a readable posted date
  * sorts last rather than first.
  */
 function compareEditions(left: Edition, right: Edition): number {

@@ -1,7 +1,6 @@
 import {
   coreSimilarity,
   creatorTags,
-  enrichedEdition,
   flags,
   language,
   languageGroups,
@@ -613,17 +612,3 @@ flags(['other:extraneous ads', 'language:rewrite']).expect([
   'extraneous ads',
   'rewrite',
 ])
-
-// 搜尋列沒有 tag，要 metadata 補上之後讀者才看得到語言與品質標記
-enrichedEdition({
-  hit: { gid: 1, title: '[Artistalpha] Work Beta [English]' },
-  metadata: {
-    titleJpn: '[作者甲] 作品乙 [英訳]',
-    tags: [
-      'language:english',
-      'language:rewrite',
-      'other:rough translation',
-      'artist:artistalpha',
-    ],
-  },
-}).expect({ language: 'english', flags: ['rewrite', 'rough translation'] })

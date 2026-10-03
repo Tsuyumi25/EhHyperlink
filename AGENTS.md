@@ -60,12 +60,14 @@ We are a guest on someone else's document:
 - Never trust visible text for anything a page translator can rewrite. The
   category is read from the badge's `onclick` navigation target and `ct<N>`
   class (`src/core/eh/category.ts`); titles come from `#gn` / `#gj` and are
-  re-fetched through the metadata API for candidates.
+  read from the fetched search HTML for candidates.
 - Search pages: one `fetch` per quoted phrase or cosplayer tag, first page only,
-  any of the five list display modes must parse. Metadata: `api.e-hentai.org` gdata,
-  25 galleries per request, pause after 4 requests
-  (https://ehwiki.org/wiki/API). The API sends CORS for both hosts, so plain
-  `fetch` works; no `@connect` needed.
+  always requested with `inline_set=dm_e`. Titles, tags, covers, ratings and
+  posted dates come from the same Extended response. Search pages provide one
+  displayed title, half-star ratings and account-local dates; do not fabricate
+  a second title or precise API values. Requests use same-origin credentials.
+  Eh View Refined preserves the user's chosen layout while the site stays in
+  Extended mode.
 - The root element carries `translate="no"`; mount points read the host's
   painted background and border into `--ehl-bg` / `--ehl-border` so the box
   is opaque on both the light and the dark site.
@@ -170,10 +172,10 @@ and commit messages:
 - `src/core/search/` — what to search and how a hit relates to the source:
   search plan, direct-discovery filtering, Manga container rules, edition-vs-series relation
 - `src/core/rank/` — scoring, creator verdict, language detection, grouping
-- `src/core/eh/` — talking to E-Hentai: search page, metadata API, URL,
+- `src/core/eh/` — talking to E-Hentai: Extended search page, URL,
   gallery page, category
-- `src/core/pipeline.ts` — the flow only: plan → search → enrich → classify
-  → group. No title logic here; add a module and call it.
+- `src/core/pipeline.ts` — the flow only: plan → search → classify → group.
+  No title logic here; add a module and call it.
 - `src/settings.ts`, `src/components/` — settings store, badges, lists,
   settings popup
 - Title and relationship tests live in `src/core/corpus/` under the rules

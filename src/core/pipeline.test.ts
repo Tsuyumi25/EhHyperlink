@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { findEditions, type JumpResult } from './pipeline'
+import { afterEach, beforeEach, expect, it, type Mock, vi } from 'vitest'
+import { type EditionGroup, findEditions, type JumpResult } from './pipeline'
 import { fetchSearch, type SearchHit, type SearchResponse } from './eh/ehSearch'
 import type * as SearchModule from './eh/ehSearch'
 import { gallery } from './corpus/gallery'
@@ -15,9 +15,6 @@ vi.mock('./eh/cache', () => ({
   cacheSet: vi.fn().mockResolvedValue(undefined),
   sweepCache: vi.fn().mockResolvedValue(undefined),
 }))
-vi.mock('./eh/throttle', () => ({
-  metadataThrottle: { next: vi.fn().mockResolvedValue(undefined) },
-}))
 
 const origin = 'https://e-hentai.org'
 const publication = hit({ gid: 21, title: 'COMIC Alphabeta Monthly Vol. 18' })
@@ -29,8 +26,10 @@ const englishEdition = hit({
 const chineseEdition = hit({
   gid: 32,
   title: '[Artist Alpha] Work Beta (COMIC Alphabeta Monthly Vol. 18) [Chinese]',
+  tags: ['other:rough_translation'],
 })
-let metadataBatches: number[][]
+/** 搜尋頁是本輪唯一的資料來源；任何直接 fetch 都代表又多了一個資料請求。 */
+let networkFetch: Mock
 
 function page(term: string, hits: SearchHit[]): SearchResponse {
   return {
@@ -46,38 +45,23 @@ function page(term: string, hits: SearchHit[]): SearchResponse {
   }
 }
 
+function releaseGids(groups: readonly EditionGroup[]): number[] {
+  return groups.flatMap((group) => group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)))
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(fetchSearch).mockReset()
-  metadataBatches = []
-  const entries = new Map(
-    [publication, japanesePublication, englishEdition, chineseEdition].map(
-      (entry) => [entry.gid, entry],
-    ),
-  )
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (_url: string, options: RequestInit) => {
-      const body = JSON.parse(String(options.body)) as {
-        gidlist: [number, string][]
-      }
-      const gids = body.gidlist.map(([gid]) => gid)
-      metadataBatches.push(gids)
-      return new Response(
-        JSON.stringify({ gmetadata: gids.map((gid) => entries.get(gid)) }),
-        {
-          headers: { 'Content-Type': 'application/json' },
-        },
-      )
-    }),
-  )
+  networkFetch = vi.fn(() => {
+    throw new Error('the pipeline sent a request of its own')
+  })
+  vi.stubGlobal('fetch', networkFetch)
 })
 
 afterEach(() => vi.unstubAllGlobals())
 
-// 原刊的兩個搜尋詞共用 metadata 批次；版本搜尋尚未完成時，原刊已可使用。
-// 強制更新仍重用本輪取得的 metadata，重疊候選只向 API 取得一次。
-it('publishes the complete container stage before editions and reuses its metadata', async () => {
+// 版本搜尋尚未完成時，原刊已可使用；強制更新套用到每一次搜尋。
+it('publishes the complete container stage before the edition searches finish', async () => {
   const source = gallery({
     title: '[Artist Alpha] Work Beta (COMIC Alphabeta Monthly Vol. 18)',
     titleJpn: '[作者甲] 作品乙 (コミック甲 Vol.18)',
@@ -102,48 +86,25 @@ it('publishes the complete container stage before editions and reuses its metada
   const early = await published.promise
   expect(early.containers.map((entry) => entry.gid)).toEqual([21, 22])
   expect(early.editions).toEqual([])
-  expect(metadataBatches).toEqual([[21, 22]])
-  expect(
-    vi
-      .mocked(fetchSearch)
-      .mock.calls.slice(0, 2)
-      .map((args) => args[1]),
-  ).toEqual(['title:"COMIC Alphabeta Monthly Vol. 18"', 'title:"コミック甲 Vol.18"'])
-  expect(early.requests.map((request) => request.kind)).toEqual([
-    'search',
-    'search',
-    'metadata',
+  expect(early.requests).toHaveLength(2)
+  // 交付中間結果時版本搜尋已在送出，只檢查原刊階段送出的兩次。
+  expect(vi.mocked(fetchSearch).mock.calls.slice(0, 2).map((args) => args[1])).toEqual([
+    'title:"COMIC Alphabeta Monthly Vol. 18"',
+    'title:"コミック甲 Vol.18"',
   ])
 
   remaining.resolve(page('Work Beta', [publication, englishEdition]))
   const final = await pending
-  expect(
-    final.editions.flatMap((group) =>
-      group.books.flatMap((book) =>
-        book.releases.map((edition) => edition.hit.gid),
-      ),
-    ),
-  ).toEqual([31, 32])
+  expect(releaseGids(final.editions)).toEqual([31, 32])
+  expect(final.editions.map((group) => group.language.value)).toEqual(['english', 'chinese'])
+  expect(final.editions.at(-1)?.books[0].releases[0].flags).toEqual(['rough translation'])
   expect(final.containers.map((entry) => entry.gid)).toEqual([21, 22])
-  expect(metadataBatches).toEqual([
-    [21, 22],
-    [31, 32],
-  ])
-  expect(final.requests.map((request) => request.kind)).toEqual([
-    'search',
-    'search',
-    'metadata',
-    'search',
-    'search',
-    'metadata',
-  ])
-  expect(final.metadataFromCache).toBe(0)
+  expect(final.requests).toHaveLength(4)
   expect(final.dataAt).toBe(100)
-  expect(early.requests.map((request) => request.kind)).toEqual([
-    'search',
-    'search',
-    'metadata',
-  ])
+  // 已交付的中間結果不會被之後的階段改寫。
+  expect(early.requests).toHaveLength(2)
+  expect(early.editions).toEqual([])
+  expect(networkFetch).not.toHaveBeenCalled()
 })
 
 // 後續搜尋失敗時保留原刊，並把失敗紀錄與部分完成狀態交給呼叫端。
@@ -182,20 +143,15 @@ it('returns one completed result when no additional search stage is planned', as
   const result = await findEditions(gallery('Work Beta'), origin, ['english'], {
     onResult,
   })
-  expect(
-    result.editions.flatMap((group) =>
-      group.books.flatMap((book) =>
-        book.releases.map((edition) => edition.hit.gid),
-      ),
-    ),
-  ).toEqual([31])
-  expect(metadataBatches).toEqual([[31]])
+  expect(releaseGids(result.editions)).toEqual([31])
+  expect(result.requests).toHaveLength(1)
+  expect(result.status).toBe('complete')
   expect(onResult).not.toHaveBeenCalled()
+  expect(networkFetch).not.toHaveBeenCalled()
 })
 
-// 多個 cosplayer 搜尋合併後，以 metadata 的原始標題排除同名圖庫，
-// 搜尋頁被翻譯過的名稱不會誤留同名版本或誤刪其他作品。
-it('filters direct discoveries after metadata enrichment across tag searches', async () => {
+// 多個 cosplayer 搜尋合併後以搜尋頁標題排除同名圖庫，重複出現的候選只留一份。
+it('filters same-titled galleries and dedupes direct discoveries across tag searches', async () => {
   const onResult = vi.fn()
   const source = gallery({
     title: englishEdition.title,
@@ -204,12 +160,12 @@ it('filters direct discoveries after metadata enrichment across tag searches', a
   })
   vi.mocked(fetchSearch)
     .mockResolvedValueOnce(page('cosplayer:"cosplayer alpha$" other:"realporn$"', [
-      { ...englishEdition, title: publication.title },
-      { ...chineseEdition, title: source.title },
-    ]))
-    .mockResolvedValueOnce(page('cosplayer:"cosplayer beta$" other:"realporn$"', [
       englishEdition,
       chineseEdition,
+    ]))
+    .mockResolvedValueOnce(page('cosplayer:"cosplayer beta$" other:"realporn$"', [
+      chineseEdition,
+      englishEdition,
     ]))
 
   const result = await findEditions(source, origin, [], { onResult })
@@ -223,8 +179,8 @@ it('filters direct discoveries after metadata enrichment across tag searches', a
   expect(result.series).toEqual([])
   expect(result.containers).toEqual([])
   expect(result.chapters).toEqual([])
-  expect(metadataBatches).toEqual([[31, 32]])
   expect(onResult).not.toHaveBeenCalled()
+  expect(networkFetch).not.toHaveBeenCalled()
 })
 
 it('merges parody discoveries with title hits without conflating series and related works', async () => {
@@ -233,36 +189,23 @@ it('merges parody discoveries with title hits without conflating series and rela
   const edition = hit({ gid: 71, title: '[Artist Alpha] Work Beta 1 [English]', tags })
   const sequel = hit({ gid: 72, title: '[Artist Alpha] Work Beta 2', tags })
   const related = hit({ gid: 73, title: '[Artist Alpha] Work Gamma', tags })
-  const entries = new Map([edition, sequel, related].map((entry) => [entry.gid, entry]))
-  vi.stubGlobal('fetch', vi.fn(async (_url: string, options: RequestInit) => {
-    const body = JSON.parse(String(options.body)) as { gidlist: [number, string][] }
-    const gids = body.gidlist.map(([gid]) => gid)
-    metadataBatches.push(gids)
-    return new Response(JSON.stringify({ gmetadata: gids.map((gid) => entries.get(gid)) }), {
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }))
   const parodyQuery = 'a:"artist alpha$" p:"series beta$"'
   vi.mocked(fetchSearch).mockImplementation(async (_origin, query) =>
     page(query, query === parodyQuery ? [edition, sequel, related] : [edition]),
   )
 
   const result = await findEditions(source, origin, [])
-  const gids = (groups: JumpResult['editions']) => groups.flatMap((group) =>
-    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
-  )
-  expect(gids(result.editions)).toEqual([71])
-  expect(gids(result.series)).toEqual([72])
-  expect(gids(result.related)).toEqual([73])
-  expect(metadataBatches).toEqual([[71], [72, 73]])
-  expect(result.requests.filter((request) => request.kind === 'search').map((request) => request.term)).toEqual([
+  expect(releaseGids(result.editions)).toEqual([71])
+  expect(releaseGids(result.series)).toEqual([72])
+  expect(releaseGids(result.related)).toEqual([73])
+  expect(result.requests.map((request) => request.term)).toEqual([
     'title:"Work" a:"artist alpha$"',
     'title:"Beta" a:"artist alpha$"',
     parodyQuery,
   ])
 })
 
-it('publishes enriched title results before starting the final parody search', async () => {
+it('publishes the title results before starting the final parody search', async () => {
   const source = gallery({
     title: 'Work Beta',
     tags: ['artist:artist_alpha', 'parody:series_beta'],
@@ -286,21 +229,17 @@ it('publishes enriched title results before starting the final parody search', a
   await started.promise
   expect(published).toHaveLength(1)
   const early = published[0]
-  expect(early.editions.flatMap((group) =>
-    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
-  )).toEqual([31])
-  expect(metadataBatches).toEqual([[31]])
+  expect(releaseGids(early.editions)).toEqual([31])
+  expect(early.requests.map((request) => request.term)).toEqual([
+    'title:"Work" a:"artist alpha$"',
+    'title:"Beta" a:"artist alpha$"',
+  ])
 
   remaining.resolve(page(parodyQuery, [englishEdition, chineseEdition]))
   const final = await pending
-  expect(final.editions.flatMap((group) =>
-    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
-  )).toEqual([31, 32])
-  expect(metadataBatches).toEqual([[31], [32]])
-  expect(early.requests.map((request) => request.kind)).toEqual(['search', 'search', 'metadata'])
-  expect(early.editions.flatMap((group) =>
-    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
-  )).toEqual([31])
+  expect(releaseGids(final.editions)).toEqual([31, 32])
+  expect(releaseGids(early.editions)).toEqual([31])
+  expect(early.requests).toHaveLength(2)
 })
 
 it('keeps published title results when the final parody search is blocked', async () => {
@@ -328,10 +267,7 @@ it('keeps published title results when the final parody search is blocked', asyn
   expect(published).toHaveLength(1)
   expect(published[0].status).toBe('complete')
   expect(final.status).toBe('partial')
-  expect(final.editions.flatMap((group) =>
-    group.books.flatMap((book) => book.releases.map((release) => release.hit.gid)),
-  )).toEqual([31])
+  expect(releaseGids(final.editions)).toEqual([31])
   expect(final.editions).toEqual(published[0].editions)
   expect(published[0].requests.some((request) => request.error)).toBe(false)
-  expect(metadataBatches).toEqual([[31]])
 })

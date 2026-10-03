@@ -4,27 +4,22 @@ import { galleryRef, pageCount } from './ehUrl'
 import type { SearchRequest } from './requestLog'
 import { searchThrottle } from './throttle'
 import { request, RequestError } from './request'
-import { isGalleryId, isNullableNumber, isNullableRating, isNullableString, isRecord, isStrings } from './validation'
+import { isGalleryId, isNullableNumber, isNullableRating, isNullableString, isRating, isRecord, isStrings } from './validation'
 
 export interface SearchHit {
   gid: number
   token: string
   href: string
   title: string
-  /** filled from the metadata API when available; search rows show one title field only */
+  /** Search pages expose only the displayed title; no second title is fetched. */
   titleJpn: string
   category: string
   tags: string[]
   pages: number | null
-  /** unix seconds; read from the row's date cell and replaced by the exact API value */
+  /** Listed wall time, interpreted as UTC for ordering; the page omits the account's timezone. */
   posted: number | null
-  /**
-   * Cover URL and 0–5 rating, from the metadata API only. A search row's
-   * thumbnail is a lazy-load placeholder until it scrolls into view, and its
-   * rating is a sprite offset in a `background-position`; the API hands over
-   * both as plain values.
-   */
   thumb: string
+  /** Displayed half-star rating, or null when unrated; no precise API score is fetched. */
   rating: number | null
   torrentHref: string | null
 }
@@ -39,22 +34,36 @@ export interface SearchResponse {
 
 export type SearchVisibility = 'published' | 'expunged'
 
-/** `f_cats=0` 避免沿用帳號隱藏的分類；搜尋領域也納入 URL 快取鍵。 */
+/** Extended supplies the full tag list; `f_cats=0` avoids account-hidden categories. */
 export function searchUrl(origin: string, query: string, visibility: SearchVisibility = 'published'): string {
   const expunged = visibility === 'expunged' ? '&f_sh=on' : ''
-  return `${origin}/?f_cats=0${expunged}&f_search=${encodeURIComponent(query)}`
+  return `${origin}/?f_cats=0&inline_set=dm_e${expunged}&f_search=${encodeURIComponent(query)}`
 }
 
-/**
- * `2023-11-19 02:18` out of the row's date cell. The host prints it in whatever
- * timezone the account is set to, which is enough to order one result page; the
- * metadata API replaces it with the exact unix value.
- */
+/** The account's wall time preserves ordering within the fetched search pages. */
 function postedSeconds(cell: Element | null): number | null {
   const text = cell?.textContent?.trim()
   if (!text) return null
   const parsed = Date.parse(`${text.replace(' ', 'T')}Z`)
   return Number.isFinite(parsed) ? Math.round(parsed / 1000) : null
+}
+
+// Native stars advance 16px horizontally; the -21px sprite row removes half a star.
+function listedRating(row: Element): number | null {
+  const stars = row.querySelector<HTMLElement>('.ir')
+  if (!stars) return null
+  const [left, top] = stars.style.backgroundPosition.split(' ')
+  if (!left?.endsWith('px')) return null
+  const x = Number.parseFloat(left)
+  if (x > 0) return null
+  if (x % 16 !== 0) return null
+  let rating = 5 + x / 16
+  switch (top) {
+    case '-1px': break
+    case '-21px': rating -= 0.5; break
+    default: return null
+  }
+  return isRating(rating) ? rating : null
 }
 
 function isSearchHit(value: unknown): value is SearchHit {
@@ -92,6 +101,7 @@ export function parseSearchResults(html: string): SearchHit[] {
         .map((element) => pageCount(element.textContent ?? ''))
         .find((count) => count !== null) ?? null
     const torrent = row.querySelector<HTMLAnchorElement>('.gldown a')
+    const cover = row.querySelector<HTMLImageElement>('.gl1e img, .glthumb img, .gl3t img')
     hits.push({
       gid: ref.gid,
       token: ref.token,
@@ -99,11 +109,11 @@ export function parseSearchResults(html: string): SearchHit[] {
       title: titleElement.textContent?.trim() ?? '',
       titleJpn: '',
       category: readCategory(row.querySelector('.cn, .cs')),
-      tags: [...row.querySelectorAll('.gt, .gtl')].map((element) => element.getAttribute('title') ?? '').filter(Boolean),
+      tags: [...row.querySelectorAll('.gt, .gtl, .gtw')].map((element) => element.getAttribute('title') ?? '').filter(Boolean),
       pages,
       posted: postedSeconds(row.querySelector(`#posted_${ref.gid}, #postedpop_${ref.gid}`)),
-      thumb: '',
-      rating: null,
+      thumb: cover?.getAttribute('data-src') || cover?.getAttribute('src') || '',
+      rating: listedRating(row),
       torrentHref: torrent?.getAttribute('href') ?? null,
     })
   }

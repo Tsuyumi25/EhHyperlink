@@ -32,22 +32,4 @@ describe('request pace', () => {
     expect(Date.now() - before).toBe(0)
     vi.useRealTimers()
   })
-
-  it('takes the longer pause after the configured count', async () => {
-    vi.useFakeTimers()
-    const throttle = createThrottle({ intervalMs: 1000, pauseEvery: 2, pauseMs: 5000 })
-    const at: number[] = []
-    const run = (async () => {
-      for (let i = 0; i < 4; i += 1) {
-        await throttle.next()
-        at.push(Date.now())
-      }
-    })()
-    await vi.advanceTimersByTimeAsync(20000)
-    await run
-    expect(at[1] - at[0]).toBe(1000)
-    expect(at[2] - at[1]).toBe(5000)
-    expect(at[3] - at[2]).toBe(1000)
-    vi.useRealTimers()
-  })
 })

@@ -1,10 +1,9 @@
 import type { Book, Edition, EditionFlag, ScoredHits } from '../rank/edition'
-import { dedupe, editionFlags, enrichHits, groupByLanguage, groupReleases, scoreEditions, toEdition } from '../rank/edition'
+import { dedupe, editionFlags, groupByLanguage, groupReleases, scoreEditions, toEdition } from '../rank/edition'
 import { creatorVerdict, type CreatorVerdict, galleryTitleSimilarity, sharesWorkPhrase, SIMILARITY_THRESHOLD, titleSimilarity } from '../rank/titleSimilarity'
 import { defineCase } from './check'
 import { detectLanguage } from '../rank/detectLanguage'
 import { gallery, type GalleryInput } from './gallery'
-import type { GalleryMetadata } from '../eh/ehApi'
 import { matchExtractedChapters } from '../search/container'
 import { planSearch } from '../search/searchPlan'
 import type { SearchHit } from '../eh/ehSearch'
@@ -80,16 +79,6 @@ export const creatorTags = defineCase<{ source: string[]; candidate: string[] },
 export const language = defineCase<{ title: string; tags: string[] }, string>('detect language', ({ title, tags }) => detectLanguage(title, tags))
 
 export const flags = defineCase<string[], EditionFlag[]>('edition flags', (tags) => editionFlags(tags))
-
-export const enrichedEdition = defineCase<{ hit: HitInput; metadata: Partial<GalleryMetadata> }, { language: string; flags: EditionFlag[] }>(
-  'enriched edition',
-  (input) => {
-    const bare = hit(input.hit)
-    const [enriched] = enrichHits([bare], new Map([[bare.gid, { gid: bare.gid, title: '', titleJpn: '', category: 'Doujinshi', posted: null, thumb: '', rating: null, tags: [], ...input.metadata }]]))
-    const edition = toEdition(enriched, 1)
-    return { language: edition.language, flags: edition.flags }
-  },
-)
 
 export interface RelationsInput {
   source: GalleryInput

@@ -60,6 +60,8 @@ const MESSAGES = {
     ja: 'このギャラリーのキャッシュを破棄して再取得',
   },
   pages: { en: 'p', zh: '頁', ja: 'ページ' },
+  copyLink: { en: 'Copy gallery link', zh: '複製畫廊網址', ja: 'ギャラリーのリンクをコピー' },
+  linkCopied: { en: 'Link copied', zh: '已複製網址', ja: 'リンクをコピーしました' },
   rewrite: { en: 'rewrite', zh: '重寫', ja: 'リライト' },
   roughTranslation: { en: 'rough translation', zh: '粗譯', ja: '粗訳' },
   extraneousAds: { en: 'extraneous ads', zh: '外部廣告', ja: '広告混入' },

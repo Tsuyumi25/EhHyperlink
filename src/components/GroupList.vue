@@ -6,6 +6,7 @@ import { locale, type MessageKey, t } from '@/i18n'
 import StarRating from '@/components/StarRating.vue'
 import TagList from '@/components/TagList.vue'
 import LanguageBadge from '@/components/LanguageBadge.vue'
+import CopyLinkButton from '@/components/CopyLinkButton.vue'
 
 /** Flag labels, one key each: the set is small and closed, so a table beats a branch. */
 const FLAG_LABELS: Record<EditionFlag, MessageKey> = {
@@ -86,28 +87,29 @@ function showPreview(release: Edition | null): void {
       <!-- A cell says everything a row says except the name, which is the one thing
            that needs a line of its own; that goes to the preview. Releases of one book
            stay adjacent here because that is the order the books hand them over in,
-           but they carry no frame: a grid cell has no room for one. -->
+           but they carry no frame: a grid cell has no room for one. The cell wraps the
+           link so the copy button can sit over its corner without nesting inside it. -->
       <div v-if="settings.view === 'covers'" class="ehl-covers">
-        <a
+        <div
           v-for="release in group.books.flatMap((book) => book.releases)"
           :key="release.hit.gid"
-          class="ehl-cover"
-          :href="release.hit.href"
-          target="_blank"
-          rel="noopener"
+          class="ehl-cover-cell"
           @mouseenter="showPreview(release)"
           @mouseleave="showPreview(null)"
         >
-          <span class="ehl-cover-art">
-            <img v-if="release.hit.thumb" :src="release.hit.thumb" loading="lazy" decoding="async" fetchpriority="low" referrerpolicy="no-referrer" alt="" />
-          </span>
-          <span class="ehl-facts">
-            <StarRating v-if="release.hit.rating !== null" :rating="release.hit.rating" />
-            <span v-if="release.score !== null" class="ehl-meta">{{ percent(release.score) }}</span>
-            <span v-if="release.hit.pages !== null" class="ehl-meta">{{ release.hit.pages }}{{ t('pages') }}</span>
-            <span v-for="flag in release.flags" :key="flag" class="ehl-flag">{{ t(FLAG_LABELS[flag]) }}</span>
-          </span>
-        </a>
+          <a class="ehl-cover" :href="release.hit.href" target="_blank" rel="noopener">
+            <span class="ehl-cover-art">
+              <img v-if="release.hit.thumb" :src="release.hit.thumb" loading="lazy" decoding="async" fetchpriority="low" referrerpolicy="no-referrer" alt="" />
+            </span>
+            <span class="ehl-facts">
+              <StarRating v-if="release.hit.rating !== null" :rating="release.hit.rating" />
+              <span v-if="release.score !== null" class="ehl-meta">{{ percent(release.score) }}</span>
+              <span v-if="release.hit.pages !== null" class="ehl-meta">{{ release.hit.pages }}{{ t('pages') }}</span>
+              <span v-for="flag in release.flags" :key="flag" class="ehl-flag">{{ t(FLAG_LABELS[flag]) }}</span>
+            </span>
+          </a>
+          <CopyLinkButton :href="release.hit.href" />
+        </div>
       </div>
       <ul v-else>
         <li
@@ -120,7 +122,8 @@ function showPreview(release: Edition | null): void {
               <!-- One link over the whole row: a reader aiming at the rating or the page
                    count is aiming at the gallery, and a row that only answers on its title
                    line reads as if the rest belongs to something else. The price is that
-                   nothing interactive may sit inside, which is what the torrent link was. -->
+                   nothing interactive may sit inside, which is what the torrent link was;
+                   the copy button is the link's sibling, laid over the row's corner. -->
               <a class="ehl-rowlink" :href="release.hit.href" target="_blank" rel="noopener">
                 <!-- The panel is `display: none` until its unit opens, so `lazy` asks for
                      nothing until a reader has actually opened it and scrolled the row into
@@ -142,6 +145,7 @@ function showPreview(release: Edition | null): void {
                   </span>
                 </span>
               </a>
+              <CopyLinkButton :href="release.hit.href" />
             </li>
           </ul>
         </li>

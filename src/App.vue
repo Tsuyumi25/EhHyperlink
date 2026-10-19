@@ -430,6 +430,7 @@ function toggle(id: string): void {
 /* The link inside carries the padding instead, so its hover shape reaches the row's
    own edges. */
 .ehl-list li.ehl-row {
+  position: relative;
   padding: 0;
 }
 /* One hit area over the cover, the title and the facts. `min-height` levels the rows
@@ -441,7 +442,7 @@ function toggle(id: string): void {
   align-items: stretch;
   gap: 6px;
   min-height: var(--ehl-cover-h);
-  padding: 2px 3px;
+  padding: 2px 36px 2px 3px;
   border-radius: 3px;
 }
 /* The row being a hit area has to be visible, or the cursor is the only clue. Mixed
@@ -486,9 +487,15 @@ function toggle(id: string): void {
   gap: 4px;
 }
 /* A cell stacks the cover over the same facts line a row carries. Grid items stretch,
-   so cells in one row stay the same height however many lines of flags they wrap to. */
+   so cells in one row stay the same height however many lines of flags they wrap to;
+   the link fills its cell so its hit area stretches with it. */
+.ehl-cover-cell {
+  position: relative;
+  display: flex;
+}
 .ehl-cover {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 2px;
 }
@@ -499,9 +506,48 @@ function toggle(id: string): void {
   height: var(--ehl-cover-h);
 }
 /* The grid has no other way to say which cover the name in the preview belongs to. */
-.ehl-cover:hover .ehl-cover-art img {
+.ehl-cover-cell:hover .ehl-cover-art img {
   border-color: currentColor;
   box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 30%, transparent);
+}
+/* Over the item's top-right corner, as the link's sibling: a button inside the link
+   would be interactive content inside an anchor. It only shows on the item the pointer
+   or the keyboard is on, and stays while its tick does. Opaque, because over a cover
+   it sits on the image. */
+.ehl-copy {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: inherit;
+  background: var(--ehl-bg, #fff);
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+}
+.ehl-row:hover .ehl-copy,
+.ehl-cover-cell:hover .ehl-copy,
+.ehl-copy:focus-visible,
+.ehl-copy--done {
+  opacity: 0.8;
+}
+.ehl-copy:hover {
+  opacity: 1;
+}
+/* A row is a whole cover tall, so its button can be a target worth aiming at. */
+.ehl-row .ehl-copy {
+  width: 28px;
+  height: 28px;
+}
+.ehl-row .ehl-copy svg {
+  width: 16px;
+  height: 16px;
 }
 /* A row stacks: the title takes as many lines as it needs, everything else goes under
    it. `min-width: 0` because a flex item defaults to `auto` and would refuse to let

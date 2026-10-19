@@ -26,8 +26,8 @@ export interface JumpResult {
   related: EditionGroup[]
   /** chapters cut from this gallery when it is a magazine or tankoubon, grouped by language */
   chapters: EditionGroup[]
-  /** magazines / tankoubon this chapter was cut from */
-  containers: SearchHit[]
+  /** magazines / tankoubon this chapter was cut from, grouped by language */
+  containers: EditionGroup[]
 }
 
 /** How far the search stage has got, reported after each page. */
@@ -84,7 +84,7 @@ export async function findEditions(
   onProgress?.({ done, total })
   const containerPages = await search(plan.containerTerms.map((term) => queryOf(plan, term)))
   const containerHits = dedupe(containerPages.flatMap((page) => page.hits), source.gid)
-  const containers = matchContainers(plan.containerNames, containerHits)
+  const containers = groupByLanguage(matchContainers(plan.containerNames, containerHits).map((hit) => toEdition(hit, null)), priority)
   if (plan.containerTerms.length > 0) {
     onResult?.({
       plan,

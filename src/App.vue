@@ -7,7 +7,6 @@ import { Activity, CircleSlash2, RefreshCw, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY, type MessageKey } from '@/i18n'
 import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
 import { findEditions, type EditionGroup, type JumpResult, type SearchProgress, type SearchRequest } from '@/core/pipeline'
-import { displayTitle, subtitle } from '@/settings'
 import type { FailureKind } from '@/core/eh/request'
 import { requestFailed } from '@/core/eh/requestLog'
 
@@ -94,6 +93,9 @@ const badges = computed<Badge[]>(() => {
     list.push({ id: 'related', label: t('related'), title: t(RELATED_TITLES[result.value.plan.mode]), groups: result.value.related })
   }
   if (result.value.chapters.length > 0) list.push({ id: 'chapters', label: t('chapters'), title: t('chaptersTitle'), groups: result.value.chapters })
+  if (result.value.containers.length > 0) {
+    list.push({ id: 'containers', label: t('container'), title: t('containerTitle'), groups: result.value.containers })
+  }
   return list
 })
 
@@ -109,7 +111,7 @@ const allFromCache = computed(() => {
   return !requests.value.some(requestFailed)
 })
 
-const hasResults = computed(() => badges.value.length > 0 || (result.value?.containers.length ?? 0) > 0)
+const hasResults = computed(() => badges.value.length > 0)
 
 const status = computed(() => {
   if (state.value === 'searching') {
@@ -188,20 +190,6 @@ function toggle(id: string): void {
             <template v-else>{{ badge.label }}</template>
           </button>
           <GroupList :groups="badge.groups" />
-        </div>
-        <div v-if="result.containers.length > 0" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'containers' }" @mouseenter="hovered = 'containers'" @mouseleave="hovered = null">
-          <button type="button" class="ehl-badge ehl-badge--container" :class="{ 'ehl-tab--pinned': pinned === 'containers' }" :title="t('containerTitle')" @click="toggle('containers')">{{ t('container') }}</button>
-          <div class="ehl-list">
-            <ul>
-              <li v-for="hit in result.containers" :key="hit.gid">
-                <a class="ehl-title" :href="hit.href" target="_blank" rel="noopener">
-                  {{ displayTitle(hit) }}
-                  <span v-if="subtitle(hit)" class="ehl-subtitle">{{ subtitle(hit) }}</span>
-                </a>
-                <span v-if="hit.pages !== null" class="ehl-facts"><span class="ehl-meta">{{ hit.pages }}{{ t('pages') }}</span></span>
-              </li>
-            </ul>
-          </div>
         </div>
       </template>
       <div class="ehl-unit">

@@ -84,7 +84,7 @@ it('publishes the complete container stage before the edition searches finish', 
     onResult: published.resolve,
   })
   const early = await published.promise
-  expect(early.containers.map((entry) => entry.gid)).toEqual([21, 22])
+  expect(releaseGids(early.containers)).toEqual([21, 22])
   expect(early.editions).toEqual([])
   expect(early.requests).toHaveLength(2)
   // 交付中間結果時版本搜尋已在送出，只檢查原刊階段送出的兩次。
@@ -98,7 +98,7 @@ it('publishes the complete container stage before the edition searches finish', 
   expect(releaseGids(final.editions)).toEqual([31, 32])
   expect(final.editions.map((group) => group.language.value)).toEqual(['english', 'chinese'])
   expect(final.editions.at(-1)?.books[0].releases[0].flags).toEqual(['rough translation'])
-  expect(final.containers.map((entry) => entry.gid)).toEqual([21, 22])
+  expect(releaseGids(final.containers)).toEqual([21, 22])
   expect(final.requests).toHaveLength(4)
   expect(final.dataAt).toBe(100)
   // 已交付的中間結果不會被之後的階段改寫。
@@ -127,10 +127,10 @@ it('leaves the published containers available when a later search fails', async 
     onResult: (result) => published.push(result),
   })
   expect(final.status).toBe('partial')
-  expect(final.containers.map((entry) => entry.gid)).toEqual([21])
+  expect(releaseGids(final.containers)).toEqual([21])
   expect(final.requests.some((request) => request.error?.status === 503)).toBe(true)
   expect(
-    published.map((result) => result.containers.map((entry) => entry.gid)),
+    published.map((result) => releaseGids(result.containers)),
   ).toEqual([[21]])
 })
 

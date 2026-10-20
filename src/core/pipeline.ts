@@ -30,6 +30,15 @@ export interface JumpResult {
   containers: EditionGroup[]
 }
 
+/**
+ * Searches one run may send, cached pages included so a revisit shows what the
+ * first visit showed. Series searches go last, so the cap lands on them first.
+ * Corpus replay of 20,000 galleries that send a series search: a cap of 5 cuts
+ * 229 runs (1.1%) and costs an edition or series in 47 (0.24%); 8 cuts 66 and
+ * costs 8; 3 cuts 886 and costs 150. Uncapped, the census worst case sends 143.
+ */
+export const DEFAULT_MAX_REQUESTS = 5
+
 /** How far the search stage has got, reported after each page. */
 export interface SearchProgress {
   done: number
@@ -43,6 +52,7 @@ export interface FindOptions {
   onProgress?: (progress: SearchProgress) => void
   /** 原刊與一般搜尋各自完成時先交付；完整結果仍由回傳的 Promise 提供。 */
   onResult?: (result: JumpResult) => void
+  maxRequests?: number
 }
 
 /**
@@ -54,7 +64,7 @@ export async function findEditions(
   source: SourceGallery,
   origin: string,
   priority: readonly string[],
-  { force = false, onProgress, onResult }: FindOptions = {},
+  { force = false, onProgress, onResult, maxRequests = DEFAULT_MAX_REQUESTS }: FindOptions = {},
 ): Promise<JumpResult> {
   const plan = planSearch(source)
   // stale entries from an earlier build or an expired day; nothing waits on it
@@ -68,20 +78,22 @@ export async function findEditions(
   // from inside a `Promise.all` would send the whole batch at once.
   let done = 0
   let total = plan.editionTerms.length + plan.containerTerms.length + seriesQueries.length
+  const reportProgress = () => onProgress?.({ done, total: Math.min(total, maxRequests) })
   const requests: SearchRequest[] = []
   const search = async (queries: readonly string[]): Promise<SearchResponse[]> => {
     const pages: SearchResponse[] = []
     for (const query of queries) {
       if (requests.some(requestStopsRun)) break
+      if (requests.length >= maxRequests) break
       const page = await fetchSearch(origin, query, plan.visibility, force)
       pages.push(page)
       requests.push(page.request)
       done += 1
-      onProgress?.({ done, total })
+      reportProgress()
     }
     return pages
   }
-  onProgress?.({ done, total })
+  reportProgress()
   const containerPages = await search(plan.containerTerms.map((term) => queryOf(plan, term)))
   const containerHits = dedupe(containerPages.flatMap((page) => page.hits), source.gid)
   const containers = groupByLanguage(matchContainers(plan.containerNames, containerHits).map((hit) => toEdition(hit, null)), priority)
@@ -116,7 +128,7 @@ export async function findEditions(
   let chapterPages: SearchResponse[] = []
   if (!sourceOnEveryFirstPage) {
     total += plan.chapterTerms.length
-    onProgress?.({ done, total })
+    reportProgress()
     chapterPages = await search(plan.chapterTerms.map((term) => queryOf(plan, term)))
   }
   const candidates = new Map<number, SearchHit>()

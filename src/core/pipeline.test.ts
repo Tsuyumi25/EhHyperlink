@@ -271,3 +271,24 @@ it('keeps published title results when the final parody search is blocked', asyn
   expect(final.editions).toEqual(published[0].editions)
   expect(published[0].requests.some((request) => request.error)).toBe(false)
 })
+
+// 上限先砍原作搜尋，進度的分母也不超過上限。
+it('stops at the request cap, cutting the parody searches that go last', async () => {
+  const source = gallery({
+    title: '[Artist Alpha] Work Beta 1',
+    tags: ['artist:artist_alpha', 'parody:series_beta', 'parody:series_gamma', 'parody:series_delta'],
+  })
+  vi.mocked(fetchSearch).mockImplementation(async (_origin, query) => page(query, [englishEdition]))
+  const progress: number[] = []
+
+  const result = await findEditions(source, origin, [], {
+    maxRequests: 3,
+    onProgress: ({ total }) => progress.push(total),
+  })
+  expect(result.requests.map((request) => request.term)).toEqual([
+    'title:"Work" a:"artist alpha$"',
+    'title:"Beta" a:"artist alpha$"',
+    'a:"artist alpha$" p:"series beta$"',
+  ])
+  expect(Math.max(...progress)).toBe(3)
+})

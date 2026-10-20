@@ -1,5 +1,6 @@
 import { reactive, watch } from 'vue'
 import { storageGet, storageSet } from '@/services/gmStorage'
+import { DEFAULT_MAX_REQUESTS } from '@/core/pipeline'
 
 const STORAGE_KEY = 'ehl_settings_v1'
 
@@ -16,11 +17,13 @@ export interface Settings {
   /** show the other title field under the main one when a gallery has both */
   showSubtitle: boolean
   view: View
+  /** searches one gallery page may send */
+  maxRequests: number
 }
 
 // Romanized reads as one line on every locale, and the second line is what tells
 // two releases of one book apart when the work text is identical.
-const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: true, view: 'list' }
+const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: true, view: 'list', maxRequests: DEFAULT_MAX_REQUESTS }
 
 export const settings = reactive<Settings>({ ...INITIAL })
 
@@ -32,6 +35,10 @@ function isView(value: unknown): value is View {
   return typeof value === 'string' && (VIEWS as readonly string[]).includes(value)
 }
 
+export function isMaxRequests(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 1
+}
+
 export async function loadSettings(): Promise<void> {
   const raw = await storageGet(STORAGE_KEY)
   if (raw) {
@@ -41,6 +48,7 @@ export async function loadSettings(): Promise<void> {
         if ('titleLanguage' in parsed && isTitleLanguage(parsed.titleLanguage)) settings.titleLanguage = parsed.titleLanguage
         if ('showSubtitle' in parsed && typeof parsed.showSubtitle === 'boolean') settings.showSubtitle = parsed.showSubtitle
         if ('view' in parsed && isView(parsed.view)) settings.view = parsed.view
+        if ('maxRequests' in parsed && isMaxRequests(parsed.maxRequests)) settings.maxRequests = parsed.maxRequests
       }
     } catch {
       // unreadable payload: keep defaults, the next save overwrites it

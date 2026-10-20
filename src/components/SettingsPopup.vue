@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
-import { settings, TITLE_LANGUAGES, type TitleLanguage, VIEWS, type View } from '@/settings'
+import { isMaxRequests, settings, TITLE_LANGUAGES, type TitleLanguage, VIEWS, type View } from '@/settings'
 
 const LABEL_KEY: Record<TitleLanguage, 'titleRomanized' | 'titleJapanese'> = {
   romanized: 'titleRomanized',
@@ -10,6 +10,13 @@ const LABEL_KEY: Record<TitleLanguage, 'titleRomanized' | 'titleJapanese'> = {
 const VIEW_KEY: Record<View, 'viewList' | 'viewCovers'> = {
   list: 'viewList',
   covers: 'viewCovers',
+}
+
+function setMaxRequests(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const value = Number(input.value)
+  if (isMaxRequests(value)) settings.maxRequests = value
+  else input.value = String(settings.maxRequests)
 }
 </script>
 
@@ -32,6 +39,10 @@ const VIEW_KEY: Record<View, 'viewList' | 'viewCovers'> = {
     <label class="ehl-settings__row ehl-settings__option">
       <input v-model="settings.showSubtitle" type="checkbox" />
       {{ t('settingSubtitle') }}
+    </label>
+    <label class="ehl-settings__row">
+      <span class="ehl-settings__label">{{ t('settingMaxRequests') }}</span>
+      <input class="ehl-settings__number" type="number" min="1" step="1" :value="settings.maxRequests" @change="setMaxRequests" />
     </label>
     <section class="ehl-settings__perks">
       <p class="ehl-settings__label">{{ t('pagingPerksTitle') }}</p>
@@ -81,6 +92,9 @@ const VIEW_KEY: Record<View, 'viewList' | 'viewCovers'> = {
 }
 .ehl-settings__option input {
   margin: 0;
+}
+.ehl-settings__number {
+  width: 4em;
 }
 .ehl-settings__perks {
   width: min(320px, calc(100vw - 40px));

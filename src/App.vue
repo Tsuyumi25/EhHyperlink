@@ -9,6 +9,7 @@ import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
 import { findEditions, type EditionGroup, type JumpResult, type SearchProgress, type SearchRequest } from '@/core/pipeline'
 import type { FailureKind } from '@/core/eh/request'
 import { requestFailed } from '@/core/eh/requestLog'
+import { settings } from '@/settings'
 
 const state = ref<'searching' | 'done' | 'noTitle' | 'failed'>('searching')
 const result = ref<JumpResult | null>(null)
@@ -32,6 +33,7 @@ async function run(force: boolean): Promise<void> {
       force,
       onProgress: (next) => (progress.value = next),
       onResult: (next) => (result.value = next),
+      maxRequests: settings.maxRequests,
     })
     result.value = found
     state.value = found.status === 'failed' ? 'failed' : hasNoSearchTerms(found) ? 'noTitle' : 'done'

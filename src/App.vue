@@ -145,7 +145,7 @@ function toggle(id: string): void {
 
 <template>
   <div class="ehl-box" translate="no">
-    <div class="ehl-tabs">
+    <div v-if="hasActivity || status" class="ehl-tabs ehl-tabs--start">
       <div v-if="hasActivity" class="ehl-unit" :class="{ 'ehl-unit--open': open === 'requests' }" @mouseenter="hovered = 'requests'" @mouseleave="hovered = null">
         <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'requests', 'ehl-tab--pinned': pinned === 'requests' }" :title="t('requestsTitle')" @click="toggle('requests')">
           <CircleSlash2 v-if="requests.length === 0" :size="14" aria-hidden="true" />
@@ -182,18 +182,20 @@ function toggle(id: string): void {
           <p v-else-if="allFromCache" class="ehl-head">{{ t('nothingSent') }}</p>
         </div>
       </div>
-      <span v-if="status" class="ehl-status">{{ status }}</span>
-      <template v-if="result">
-        <div v-for="badge in badges" :key="badge.id" class="ehl-unit" :class="{ 'ehl-unit--open': open === badge.id }" @mouseenter="hovered = badge.id" @mouseleave="hovered = null">
-          <button type="button" class="ehl-badge" :class="{ 'ehl-tab--pinned': pinned === badge.id }" :title="badge.title" :aria-label="badge.label" @click="toggle(badge.id)">
-            <template v-if="badge.id === 'editions'">
-              <LanguageBadge v-for="group in badge.groups" :key="group.language.value" :language="group.language" />
-            </template>
-            <template v-else>{{ badge.label }}</template>
-          </button>
-          <GroupList :groups="badge.groups" />
-        </div>
-      </template>
+      <span v-if="status" class="ehl-status" :title="status">{{ status }}</span>
+    </div>
+    <div v-if="badges.length > 0" class="ehl-tabs ehl-tabs--center">
+      <div v-for="badge in badges" :key="badge.id" class="ehl-unit" :class="{ 'ehl-unit--open': open === badge.id }" @mouseenter="hovered = badge.id" @mouseleave="hovered = null">
+        <button type="button" class="ehl-badge" :class="{ 'ehl-tab--pinned': pinned === badge.id }" :title="badge.title" :aria-label="badge.label" @click="toggle(badge.id)">
+          <template v-if="badge.id === 'editions'">
+            <LanguageBadge v-for="group in badge.groups" :key="group.language.value" :language="group.language" />
+          </template>
+          <template v-else>{{ badge.label }}</template>
+        </button>
+        <GroupList :groups="badge.groups" />
+      </div>
+    </div>
+    <div class="ehl-tabs ehl-tabs--end">
       <div class="ehl-unit">
         <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'settings', 'ehl-tab--pinned': pinned === 'settings' }" :title="t('settings')" @click="toggle('settings')">
           <Settings :size="14" aria-hidden="true" />
@@ -207,8 +209,7 @@ function toggle(id: string): void {
 <style>
 /* Same column as `.gm` (g.css: min-width 720, max-width 1200, margin auto; narrower
    at the two breakpoints) so the bar lines up with the box below. `.gm`'s own
-   top margin moves up here so the bar touches the box; the badges are centred
-   to sit close to the title. */
+   top margin moves up here so the bar touches the box. */
 #ehl-app {
   min-width: 720px;
   max-width: 1200px;
@@ -228,32 +229,54 @@ function toggle(id: string): void {
     max-width: 720px;
   }
 }
-/* Positioned so the popovers below centre on the whole column, i.e. on the page. */
+/* Positioned so the popovers below centre on the whole column, i.e. on the page.
+   The two side columns share the leftover width equally, so the result badges sit
+   at the true centre however long the status text on the left grows. */
 .ehl-box {
   position: relative;
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  column-gap: 8px;
+  /* `.gm` rounds its corners by the same 9px the tabs use; inset by that much the
+     side groups stand on its straight top edge instead of over the curve. */
+  padding: 0 9px;
+  align-items: end;
   font-size: 12px;
   font-weight: bold;
   text-align: left;
 }
-/* The tab group owns the frame and the `.gm` corner radius; buttons inside only
+/* Each tab group owns its frame and the `.gm` corner radius; buttons inside only
    draw the separator on their left edge. */
 .ehl-tabs {
   display: flex;
   align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--ehl-bg, #fff);
   border: 1px solid var(--ehl-border, currentColor);
   border-bottom: 0;
   border-radius: 9px 9px 0 0;
 }
+.ehl-tabs--start {
+  grid-column: 1;
+  justify-self: start;
+}
+.ehl-tabs--center {
+  grid-column: 2;
+}
+.ehl-tabs--end {
+  grid-column: 3;
+  justify-self: end;
+}
 .ehl-status {
-  display: flex;
-  align-items: center;
-  height: 22px;
+  min-width: 0;
   padding: 0 8px;
+  line-height: 22px;
   opacity: 0.7;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ehl-unit {
   display: flex;

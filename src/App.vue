@@ -229,17 +229,19 @@ function toggle(id: string): void {
     max-width: 720px;
   }
 }
-/* Positioned so the popovers below centre on the whole column, i.e. on the page.
+/* Positioned so the popovers below anchor on the whole column: the result lists
+   centre on it, i.e. on the page, and each side group's panel keeps to its edge.
    The two side columns share the leftover width equally, so the result badges sit
    at the true centre however long the status text on the left grows. */
 .ehl-box {
+  /* `.gm` rounds its corners by the same 9px the tabs use; inset by that much the
+     side groups stand on its straight top edge instead of over the curve. */
+  --ehl-inset: 9px;
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   column-gap: 8px;
-  /* `.gm` rounds its corners by the same 9px the tabs use; inset by that much the
-     side groups stand on its straight top edge instead of over the curve. */
-  padding: 0 9px;
+  padding: 0 var(--ehl-inset);
   align-items: end;
   font-size: 12px;
   font-weight: bold;
@@ -325,7 +327,7 @@ function toggle(id: string): void {
   opacity: 1;
 }
 /* The list stays a DOM child of its unit, so moving the pointer from the badge
-   down into it keeps the unit hovered; visually it hangs centred under the bar.
+   down into it keeps the unit hovered; visually it hangs under the bar (see `.ehl-box`).
    It overlaps the top of `.gm`, whose columns are stacking contexts of their own
    (`#gleft` 1, `#gmid` / `#gd2` 2, ehs `#gright` 3), so it needs a higher index. */
 .ehl-list {
@@ -349,6 +351,11 @@ function toggle(id: string): void {
 }
 .ehl-unit--open .ehl-list {
   display: block;
+}
+.ehl-tabs--start .ehl-list {
+  right: auto;
+  left: var(--ehl-inset);
+  margin: 0;
 }
 /* The as-of row holds the age of what is on screen and the one control that
    throws it away, so they read as one statement. */

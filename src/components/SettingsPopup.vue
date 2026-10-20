@@ -61,10 +61,9 @@ function setMaxRequests(event: Event): void {
 .ehl-settings {
   position: absolute;
   top: 100%;
-  left: 0;
-  right: 0;
+  right: var(--ehl-inset, 0);
   width: max-content;
-  margin: 0 auto;
+  margin: 0;
   padding: 8px 10px;
   font-size: 12px;
   font-weight: 400;

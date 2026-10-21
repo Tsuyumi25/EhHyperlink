@@ -34,6 +34,7 @@ async function run(force: boolean): Promise<void> {
       onProgress: (next) => (progress.value = next),
       onResult: (next) => (result.value = next),
       maxRequests: settings.maxRequests,
+      languages: settings.languages,
     })
     result.value = found
     state.value = found.status === 'failed' ? 'failed' : hasNoSearchTerms(found) ? 'noTitle' : 'done'

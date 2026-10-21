@@ -1,6 +1,6 @@
 import { matchContainers, matchExtractedChapters } from './search/container'
 import { dedupe, type EditionGroup, groupByLanguage, scoreEditions, toEdition } from './rank/edition'
-import { fetchSearch, type SearchHit, type SearchResponse } from './eh/ehSearch'
+import { fetchSearch, type LanguageScope, type SearchHit, type SearchResponse } from './eh/ehSearch'
 import { requestStopsRun, resultStatus, type SearchRequest } from './eh/requestLog'
 import type { SourceGallery } from './eh/galleryPage'
 import { planSearch, queryOf, seriesQueriesOf, type SearchPlan } from './search/searchPlan'
@@ -53,6 +53,7 @@ export interface FindOptions {
   /** 原刊與一般搜尋各自完成時先交付；完整結果仍由回傳的 Promise 提供。 */
   onResult?: (result: JumpResult) => void
   maxRequests?: number
+  languages?: LanguageScope
 }
 
 /**
@@ -64,7 +65,7 @@ export async function findEditions(
   source: SourceGallery,
   origin: string,
   priority: readonly string[],
-  { force = false, onProgress, onResult, maxRequests = DEFAULT_MAX_REQUESTS }: FindOptions = {},
+  { force = false, onProgress, onResult, maxRequests = DEFAULT_MAX_REQUESTS, languages = 'all' }: FindOptions = {},
 ): Promise<JumpResult> {
   const plan = planSearch(source)
   // stale entries from an earlier build or an expired day; nothing waits on it
@@ -85,7 +86,7 @@ export async function findEditions(
     for (const query of queries) {
       if (requests.some(requestStopsRun)) break
       if (requests.length >= maxRequests) break
-      const page = await fetchSearch(origin, query, plan.visibility, force)
+      const page = await fetchSearch(origin, query, plan.visibility, languages, force)
       pages.push(page)
       requests.push(page.request)
       done += 1

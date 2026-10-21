@@ -40,6 +40,10 @@ function setMaxRequests(event: Event): void {
       <input v-model="settings.showSubtitle" type="checkbox" />
       {{ t('settingSubtitle') }}
     </label>
+    <label class="ehl-settings__row ehl-settings__option">
+      <input v-model="settings.languages" type="checkbox" true-value="account" false-value="all" />
+      {{ t('settingHideExcludedLanguages') }}
+    </label>
     <label class="ehl-settings__row">
       <span class="ehl-settings__label">{{ t('settingMaxRequests') }}</span>
       <input class="ehl-settings__number" type="number" min="1" step="1" :value="settings.maxRequests" @change="setMaxRequests" />

@@ -1,6 +1,7 @@
 import { reactive, watch } from 'vue'
 import { storageGet, storageSet } from '@/services/gmStorage'
 import { DEFAULT_MAX_REQUESTS } from '@/core/pipeline'
+import type { LanguageScope } from '@/core/eh/ehSearch'
 
 const STORAGE_KEY = 'ehl_settings_v1'
 
@@ -19,11 +20,13 @@ export interface Settings {
   view: View
   /** searches one gallery page may send */
   maxRequests: number
+  /** whether languages excluded in the account's EH settings still appear in the results */
+  languages: LanguageScope
 }
 
 // Romanized reads as one line on every locale, and the second line is what tells
 // two releases of one book apart when the work text is identical.
-const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: true, view: 'list', maxRequests: DEFAULT_MAX_REQUESTS }
+const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: true, view: 'list', maxRequests: DEFAULT_MAX_REQUESTS, languages: 'all' }
 
 export const settings = reactive<Settings>({ ...INITIAL })
 
@@ -33,6 +36,10 @@ function isTitleLanguage(value: unknown): value is TitleLanguage {
 
 function isView(value: unknown): value is View {
   return typeof value === 'string' && (VIEWS as readonly string[]).includes(value)
+}
+
+function isLanguageScope(value: unknown): value is LanguageScope {
+  return value === 'all' || value === 'account'
 }
 
 export function isMaxRequests(value: unknown): value is number {
@@ -49,6 +56,7 @@ export async function loadSettings(): Promise<void> {
         if ('showSubtitle' in parsed && typeof parsed.showSubtitle === 'boolean') settings.showSubtitle = parsed.showSubtitle
         if ('view' in parsed && isView(parsed.view)) settings.view = parsed.view
         if ('maxRequests' in parsed && isMaxRequests(parsed.maxRequests)) settings.maxRequests = parsed.maxRequests
+        if ('languages' in parsed && isLanguageScope(parsed.languages)) settings.languages = parsed.languages
       }
     } catch {
       // unreadable payload: keep defaults, the next save overwrites it

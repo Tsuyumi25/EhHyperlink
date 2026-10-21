@@ -34,7 +34,7 @@ export interface SearchResponse {
 
 export type SearchVisibility = 'published' | 'expunged'
 
-/** Languages excluded in the account's EH settings: `all` lists them anyway, `account` lets EH drop them. */
+/** Languages excluded in the account's EH settings: `account` lets EH drop them, `all` lists them anyway. */
 export type LanguageScope = 'all' | 'account'
 
 /**
@@ -44,7 +44,7 @@ export type LanguageScope = 'all' | 'account'
  * setting (`f_sfl`) — other-language editions are what the badges exist for, yet a reader may
  * still not want languages they cannot read.
  */
-export function searchUrl(origin: string, query: string, visibility: SearchVisibility = 'published', languages: LanguageScope = 'all'): string {
+export function searchUrl(origin: string, query: string, visibility: SearchVisibility = 'published', languages: LanguageScope = 'account'): string {
   const expunged = visibility === 'expunged' ? '&f_sh=on' : ''
   const everyLanguage = languages === 'all' ? '&f_sfl=on' : ''
   return `${origin}/?f_cats=0&inline_set=dm_e${expunged}&f_sfu=on&f_sft=on${everyLanguage}&f_search=${encodeURIComponent(query)}`
@@ -137,7 +137,7 @@ export function parseSearchResults(html: string): SearchHit[] {
  * `force` skips the read and overwrites the entry — the refetch button asks for
  * that, and nothing else should.
  */
-export async function fetchSearch(origin: string, query: string, visibility: SearchVisibility = 'published', languages: LanguageScope = 'all', force = false): Promise<SearchResponse> {
+export async function fetchSearch(origin: string, query: string, visibility: SearchVisibility = 'published', languages: LanguageScope = 'account', force = false): Promise<SearchResponse> {
   const url = searchUrl(origin, query, visibility, languages)
   const cached = force ? null : await cacheGet(url, isSearchHits)
   if (cached) return { request: { kind: 'search', url, term: query, hitCount: cached.data.length, cached: true, attempts: 0 }, hits: cached.data, at: cached.at }

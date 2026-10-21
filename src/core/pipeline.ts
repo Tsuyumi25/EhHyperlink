@@ -65,7 +65,7 @@ export async function findEditions(
   source: SourceGallery,
   origin: string,
   priority: readonly string[],
-  { force = false, onProgress, onResult, maxRequests = DEFAULT_MAX_REQUESTS, languages = 'all' }: FindOptions = {},
+  { force = false, onProgress, onResult, maxRequests = DEFAULT_MAX_REQUESTS, languages = 'account' }: FindOptions = {},
 ): Promise<JumpResult> {
   const plan = planSearch(source)
   // stale entries from an earlier build or an expired day; nothing waits on it

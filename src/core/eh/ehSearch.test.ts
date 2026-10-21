@@ -103,14 +103,14 @@ describe('search result parsing', () => {
     expect(expunged.searchParams.get('inline_set')).toBe('dm_e')
   })
 
-  it('drops the account uploader and My Tags filters, and the language filter unless asked to keep it', () => {
-    const every = new URL(searchUrl('https://e-hentai.org', 'title:"Work Beta"'))
-    expect(every.searchParams.get('f_sfu')).toBe('on')
-    expect(every.searchParams.get('f_sft')).toBe('on')
-    expect(every.searchParams.get('f_sfl')).toBe('on')
-    const account = new URL(searchUrl('https://e-hentai.org', 'title:"Work Beta"', 'published', 'account'))
+  it('drops the account uploader and My Tags filters, and the language filter only when asked to', () => {
+    const account = new URL(searchUrl('https://e-hentai.org', 'title:"Work Beta"'))
     expect(account.searchParams.get('f_sfu')).toBe('on')
     expect(account.searchParams.get('f_sft')).toBe('on')
     expect(account.searchParams.get('f_sfl')).toBeNull()
+    const every = new URL(searchUrl('https://e-hentai.org', 'title:"Work Beta"', 'published', 'all'))
+    expect(every.searchParams.get('f_sfu')).toBe('on')
+    expect(every.searchParams.get('f_sft')).toBe('on')
+    expect(every.searchParams.get('f_sfl')).toBe('on')
   })
 })

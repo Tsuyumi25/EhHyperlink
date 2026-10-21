@@ -41,8 +41,8 @@ function setMaxRequests(event: Event): void {
       {{ t('settingSubtitle') }}
     </label>
     <label class="ehl-settings__row ehl-settings__option">
-      <input v-model="settings.languages" type="checkbox" true-value="account" false-value="all" />
-      {{ t('settingHideExcludedLanguages') }}
+      <input v-model="settings.languages" type="checkbox" true-value="all" false-value="account" />
+      {{ t('settingShowExcludedLanguages') }}
     </label>
     <label class="ehl-settings__row">
       <span class="ehl-settings__label">{{ t('settingMaxRequests') }}</span>

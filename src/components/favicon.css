@@ -1,0 +1,9 @@
+/* In `em` so the icon follows the text it stands in front of and the reader's zoom. */
+.ehl-favicon {
+  width: 1em;
+  height: 1em;
+  margin: 0 0.25em 0 0;
+  vertical-align: -0.15em;
+  border: 0;
+  object-fit: contain;
+}

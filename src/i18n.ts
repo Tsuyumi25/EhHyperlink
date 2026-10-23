@@ -97,6 +97,28 @@ const MESSAGES = {
   },
   hathPerks: { en: 'Hath Perks', zh: 'Hath Perks', ja: 'Hath Perks' },
   pagingPerksDetails: { en: 'Details', zh: '說明', ja: '詳細' },
+  sourceSearch: { en: 'Find sources', zh: '找來源', ja: '出典を探す' },
+  sourceSearchTitle: {
+    en: 'Search stores, creator pages and social sites for the work, circle and artist',
+    zh: '用這本的作品、社團、作者去搜商店、創作者頁和社群',
+    ja: 'この作品・サークル・作家でストア、クリエイターページ、SNS を検索',
+  },
+  close: { en: 'Close', zh: '關閉', ja: '閉じる' },
+  termWork: { en: 'Work', zh: '作品', ja: '作品' },
+  termCircle: { en: 'Circle', zh: '社團', ja: 'サークル' },
+  termArtist: { en: 'Artist', zh: '作者', ja: '作家' },
+  termAdd: { en: 'Add', zh: '新增', ja: '追加' },
+  termRemove: { en: 'Remove this term', zh: '刪除這個關鍵字', ja: 'このキーワードを削除' },
+  previewGoogle: { en: 'Preview Google', zh: '預覽 Google', ja: 'Google をプレビュー' },
+  previewLoading: { en: 'Loading Google in a background tab…', zh: '正在背景分頁打開 Google…', ja: 'バックグラウンドのタブで Google を読み込み中…' },
+  previewTimeout: { en: 'The Google tab did not answer in time', zh: 'Google 分頁沒有及時回應', ja: 'Google のタブから時間内に応答がありません' },
+  previewEmpty: { en: 'Google shows no results', zh: 'Google 沒有搜尋結果', ja: 'Google に検索結果がありません' },
+  previewBlocked: { en: 'Google asked to verify you are not a robot; open the search to continue', zh: 'Google 要求驗證不是機器人；請直接打開搜尋頁處理', ja: 'Google がロボット確認を求めています。検索ページを開いて続けてください' },
+  previewUnavailable: {
+    en: 'The userscript manager does not let this script open tabs; reinstall the script',
+    zh: '腳本管理器沒有讓這個腳本開分頁；請重新安裝腳本',
+    ja: 'スクリプトマネージャーがタブを開く権限を渡していません。スクリプトを再インストールしてください',
+  },
 } as const
 
 export type MessageKey = keyof typeof MESSAGES

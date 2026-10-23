@@ -35,7 +35,8 @@ export default defineConfig({
       entry: 'src/main.ts',
       userscript: {
         namespace: 'https://github.com/Tsuyumi25/EhHyperlink',
-        match: ['https://exhentai.org/g/*', 'https://e-hentai.org/g/*'],
+        // Google search pages answer the gallery page's preview (src/services/googlePreview.ts).
+        match: ['https://exhentai.org/g/*', 'https://e-hentai.org/g/*', 'https://www.google.com/search*'],
         name: {
           '': 'EH Hyperlink',
           'zh-TW': 'EH 語言版本跳轉',

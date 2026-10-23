@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import App from '@/App.vue'
 import { loadSettings } from '@/settings'
+import { answerGooglePreview } from '@/services/googlePreview'
 
 /** `transparent` or an rgba() with zero alpha, as getComputedStyle reports unpainted backgrounds. */
 function isTransparent(color: string): boolean {
@@ -20,8 +21,9 @@ function opaqueBackground(element: HTMLElement): string {
 // The bar sits right before `.gm` in normal flow: every column inside `.gm`
 // (`#gleft` z-index 1, `#gmid` / `#gd2` z-index 2) stays a stacking context of its
 // own, and the popovers here compete only in the root context.
-const host = document.querySelector<HTMLElement>('.gm')
-if (host) {
+async function mountGalleryPage(): Promise<void> {
+  const host = document.querySelector<HTMLElement>('.gm')
+  if (!host) return
   await loadSettings()
   const container = document.createElement('div')
   container.id = 'ehl-app'
@@ -30,3 +32,7 @@ if (host) {
   host.before(container)
   createApp(App).mount(container)
 }
+
+// A Google search page only answers the gallery page's preview request, if it is one.
+if (location.hostname === 'www.google.com') await answerGooglePreview()
+else await mountGalleryPage()

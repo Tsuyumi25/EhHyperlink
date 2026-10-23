@@ -4,6 +4,10 @@
 
 從 E-Hentai / ExHentai 的畫廊頁一鍵跳到它的其他語言版本、同系列、原刊雜誌和收錄作品。
 
+## 找來源
+
+圖庫沒人貼來源時，按設定鈕左邊的剪貼簿按鈕，會彈出用標題切出的作品、社團、作者組好的搜尋連結，每一列都能搜 DLsite、FANZA、Melonbooks、虎之穴、BOOTH、pixiv、Ci-en、Fantia、X、Misskey、Google。關鍵字可以改。按「預覽 Google」會用你自己的瀏覽器（帶著你的登入）在背景分頁打開那一列的 Google 搜尋，把第一頁結果列在彈出框裡，再把分頁關掉。
+
 ## 安裝
 
 需要 [Tampermonkey](https://www.tampermonkey.net/) 或相容的 userscript manager。

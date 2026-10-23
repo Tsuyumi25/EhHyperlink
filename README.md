@@ -4,6 +4,10 @@
 
 Jump from an E-Hentai / ExHentai gallery to its other language editions, its series, the magazine it came from, and the chapters it contains.
 
+## Source search
+
+When nobody has posted where a gallery comes from, the clipboard button left of the settings button opens search links for the work, circle and artist read from the title, each searching DLsite, FANZA, Melonbooks, Toranoana, BOOTH, pixiv, Ci-en, Fantia, X, Misskey and Google. The terms are editable. **Preview Google** opens that term's Google search in a background tab of your own browser, signed in as you are, lists its first page of results in the popup, and closes the tab.
+
 ## Install
 
 Requires [Tampermonkey](https://www.tampermonkey.net/) or a compatible userscript manager.

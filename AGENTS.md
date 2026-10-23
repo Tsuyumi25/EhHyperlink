@@ -11,7 +11,10 @@ A userscript bundled by `vite-plugin-monkey` and injected into
 the one on screen — the same book in other languages, other books of the
 series, the magazine a chapter came from, the chapters a magazine contains —
 by structured analysis of gallery titles, and shows them as badges on the
-title box.
+title box. A bar popup lists store and creator searches for the gallery's
+work, circle and artist (`src/core/source/`). The script also runs on
+`www.google.com/search`, where it does nothing unless the gallery page opened
+that search as a preview.
 
 The rules were derived from a census of the public
 [URenko/e-hentai-db](https://github.com/URenko/e-hentai-db) SQLite snapshot
@@ -176,8 +179,14 @@ and commit messages:
   gallery page, category
 - `src/core/pipeline.ts` — the flow only: plan → search → classify → group.
   No title logic here; add a module and call it.
+- `src/core/source/` — source search: work / circle / artist terms read off
+  the gallery, the table of store and creator search URLs, and reading a
+  Google results page
+- `src/services/googlePreview.ts` — the preview round trip: the gallery page
+  leaves a request in GM storage and opens the search in a background tab;
+  that tab reads its results, writes them back, and is closed
 - `src/settings.ts`, `src/components/` — settings store, badges, lists,
-  settings popup
+  settings popup, source search popup
 - Title and relationship tests live in `src/core/corpus/` under the rules
   above. Other tests sit next to the module they cover. The live site is
   checked by hand with a built script injected into a headless tab.

@@ -3,7 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import GroupList from '@/components/GroupList.vue'
 import LanguageBadge from '@/components/LanguageBadge.vue'
 import SettingsPopup from '@/components/SettingsPopup.vue'
-import { Activity, CircleSlash2, RefreshCw, Settings } from '@lucide/vue'
+import SourceSearch from '@/components/SourceSearch.vue'
+import { Activity, CircleSlash2, ClipboardList, RefreshCw, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY, type MessageKey } from '@/i18n'
 import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
 import { findEditions, type EditionGroup, type JumpResult, type SearchProgress, type SearchRequest } from '@/core/pipeline'
@@ -197,6 +198,13 @@ function toggle(id: string): void {
       </div>
     </div>
     <div class="ehl-tabs ehl-tabs--end">
+      <div v-if="source" class="ehl-unit">
+        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': pinned === 'source', 'ehl-tab--pinned': pinned === 'source' }" :title="t('sourceSearchTitle')" @click="toggle('source')">
+          <ClipboardList :size="14" aria-hidden="true" />
+        </button>
+        <!-- v-show: terms the reader edited and previews already fetched survive closing it -->
+        <SourceSearch v-show="pinned === 'source'" :source="source" @close="pinned = null" />
+      </div>
       <div class="ehl-unit">
         <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'settings', 'ehl-tab--pinned': pinned === 'settings' }" :title="t('settings')" @click="toggle('settings')">
           <Settings :size="14" aria-hidden="true" />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SourceGallery } from '../eh/galleryPage'
-import { searchTerms } from './terms'
+import { googleQuery, searchTerms } from './terms'
 
 function gallery(title: string, titleJpn: string, tags: string[] = []): SourceGallery {
   return { gid: 1, title, titleJpn, category: 'Doujinshi', tags }
@@ -60,5 +60,25 @@ describe('searchTerms', () => {
       { kind: 'circle', text: 'Circle Alpha' },
       { kind: 'artist', text: 'Circle Alpha' },
     ])
+  })
+})
+
+describe('googleQuery', () => {
+  // The creator block and the work stay as the title writes them; the event
+  // in front and the translation tag behind are left out, since they differ
+  // between uploads of one book.
+  it('keeps the creator block and the work, without the event and the release tag', () => {
+    expect(googleQuery(gallery('(C104) [Circle Alpha (Artist Beta)] Work Beta [English]', '(C104) [サークル甲 (作家乙)] 作品乙 [英訳]'))).toBe('[サークル甲 (作家乙)] 作品乙')
+  })
+
+  // A series block after the work, and a release tag such as a digital
+  // edition, are part of what surrounds the work, not of its name.
+  it('drops the series block and digital tag after the work', () => {
+    expect(googleQuery(gallery('[Circle Alpha] Work Beta (Series Gamma) [Digital]', ''))).toBe('[Circle Alpha] Work Beta')
+  })
+
+  // A title without a creator block searches on the work alone.
+  it('searches the work alone when the title names no creator', () => {
+    expect(googleQuery(gallery('Work Beta [Chinese]', ''))).toBe('Work Beta')
   })
 })

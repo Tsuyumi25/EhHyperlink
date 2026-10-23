@@ -1,6 +1,6 @@
 import { GM_addValueChangeListener, GM_openInTab, GM_removeValueChangeListener } from '$'
 import { readGoogleResults } from '@/core/source/googleResults'
-import { isFresh, queryOf, requestFor, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
+import { isFresh, requestFor, searchKey, searchOf, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
 import { storageGet, storageRemove, storageSet } from '@/services/gmStorage'
 
 const REQUESTS_KEY = 'ehl_preview_requests_v1'
@@ -69,11 +69,11 @@ export async function previewGoogle(url: string): Promise<PreviewAnswer | null> 
   // An installed dev loader older than the current grant list hands the script
   // no GM API at all; say so instead of throwing.
   if (typeof GM_openInTab !== 'function') return { status: 'unavailable', results: [] }
-  const query = new URL(url).searchParams.get('q') ?? ''
+  const key = searchKey(new URL(url)) ?? ''
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
   const now = Date.now()
   const requests = (await readRequests()).filter((request) => isFresh(request, now))
-  requests.push({ id, query, at: now })
+  requests.push({ id, key, at: now })
   await storageSet(REQUESTS_KEY, JSON.stringify(requests))
   const answer = waitForAnswer(id)
   const tab = GM_openInTab(url, { active: false, insert: true })
@@ -95,14 +95,14 @@ async function renderedResults(): Promise<void> {
 }
 
 /**
- * On a Google search page: answer the gallery page's request for this query,
+ * On a Google search page: answer the gallery page's request for this search,
  * if it made one. Any other Google search the reader runs is left alone after
  * one storage read.
  */
 export async function answerGooglePreview(): Promise<void> {
-  const asked = queryOf(new URL(location.href))
+  const asked = searchOf(new URL(location.href))
   if (!asked) return
-  const request = requestFor(await readRequests(), asked.query, Date.now())
+  const request = requestFor(await readRequests(), asked.key, Date.now())
   if (!request) return
   if (asked.blocked) {
     await storageSet(answerKey(request.id), JSON.stringify({ status: 'blocked', results: [] } satisfies PreviewAnswer))

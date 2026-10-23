@@ -6,7 +6,7 @@ Jump from an E-Hentai / ExHentai gallery to its other language editions, its ser
 
 ## Source search
 
-When nobody has posted where a gallery comes from, the clipboard button left of the settings button opens search links for the work, circle and artist read from the title, each searching DLsite, FANZA, Melonbooks, Toranoana, BOOTH, pixiv, Ci-en, Fantia, X, Misskey and Google. The terms are editable. **Preview Google** opens that term's Google search in a background tab of your own browser, signed in as you are, lists its first page of results in the popup, and closes the tab.
+When nobody has posted where a gallery comes from, the clipboard button left of the settings button opens search links for the work, circle and artist read from the title, each searching DLsite, FANZA, Melonbooks, Toranoana, BOOTH, pixiv, Ci-en, Fantia, X, Misskey and Google. The terms are editable. On top, the whole title — creator block and work, without the event, language or release tags around them — goes to Google: **Preview Google** opens that search in a background tab of your own browser, signed in as you are, lists the results in the popup and closes the tab; **Next page** fetches one more page the same way.
 
 ## Install
 

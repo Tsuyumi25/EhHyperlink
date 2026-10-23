@@ -35,8 +35,12 @@ export default defineConfig({
       entry: 'src/main.ts',
       userscript: {
         namespace: 'https://github.com/Tsuyumi25/EhHyperlink',
+        match: ['https://exhentai.org/g/*', 'https://e-hentai.org/g/*'],
         // Google search pages answer the gallery page's preview (src/services/googlePreview.ts).
-        match: ['https://exhentai.org/g/*', 'https://e-hentai.org/g/*', 'https://www.google.com/search*'],
+        // A regex because Google may redirect `www.google.com/search` to a
+        // country domain (seen: `www.google.com.hk`, keeping `q` and adding `sei`),
+        // and match patterns cannot wildcard a TLD.
+        include: [/^https:\/\/www\.google\.[a-z.]+\/search/],
         name: {
           '': 'EH Hyperlink',
           'zh-TW': 'EH 語言版本跳轉',

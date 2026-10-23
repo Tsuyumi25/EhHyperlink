@@ -1,3 +1,4 @@
+import { RESULTS_PER_PAGE } from './preview'
 import type { SearchTerm, TermKind } from './terms'
 
 export interface SearchSite {
@@ -25,7 +26,12 @@ const MELONBOOKS_TEXT_TYPE: Record<TermKind, string> = {
   artist: 'author',
 }
 
-/** Also the one search the gallery page can preview (`services/googlePreview.ts`). */
+/** A plain Google search, page `page` (0-based) of its results; the URL the preview opens and pages through. */
+export function googleSearchUrl(query: string, page = 0): string {
+  const start = page > 0 ? `&start=${page * RESULTS_PER_PAGE}` : ''
+  return `https://www.google.com/search?q=${encode(query)}${start}`
+}
+
 export const GOOGLE: SearchSite = {
   id: 'google',
   name: 'Google',

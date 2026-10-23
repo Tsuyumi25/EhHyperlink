@@ -13,8 +13,8 @@ series, the magazine a chapter came from, the chapters a magazine contains —
 by structured analysis of gallery titles, and shows them as badges on the
 title box. A bar popup lists store and creator searches for the gallery's
 work, circle and artist (`src/core/source/`). The script also runs on
-`www.google.com/search`, where it does nothing unless the gallery page opened
-that search as a preview.
+Google search pages (`www.google.*/search`), where it does nothing unless the
+gallery page opened that search as a preview.
 
 The rules were derived from a census of the public
 [URenko/e-hentai-db](https://github.com/URenko/e-hentai-db) SQLite snapshot

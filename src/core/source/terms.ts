@@ -78,3 +78,16 @@ export function searchTerms(source: SourceGallery): SearchTerm[] {
     return true
   })
 }
+
+/**
+ * The title as one Google search: the creator block and the work as the title
+ * writes them, without what sits around them — a leading event or other
+ * marker, a trailing language, translation or release tag, or the series
+ * block after the work. Those vary between uploads of one book, while
+ * `[Circle (Artist)] Work` is what a store page or a post about it repeats.
+ */
+export function googleQuery(source: SourceGallery): string {
+  const parts = analyzeTitle(originalTitle(source))
+  const creator = parts.identityBlocks.map((block) => `[${block}]`)
+  return [...creator, ...parts.coreSegments].join(' ')
+}

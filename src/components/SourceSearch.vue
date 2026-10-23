@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
-import { Eye, LoaderCircle, Trash2, X } from '@lucide/vue'
+import { computed, ref } from 'vue'
+import { ChevronDown, Eye, LoaderCircle, Trash2, X } from '@lucide/vue'
 import { t, type MessageKey } from '@/i18n'
 import type { SourceGallery } from '@/core/eh/galleryPage'
 import { citeOrigin } from '@/core/source/googleResults'
 import type { PreviewAnswer } from '@/core/source/preview'
-import { GOOGLE, SEARCH_SITES } from '@/core/source/sites'
-import { searchTerms, type SearchTerm, type TermKind } from '@/core/source/terms'
+import { googleSearchUrl, SEARCH_SITES } from '@/core/source/sites'
+import { googleQuery, searchTerms, type SearchTerm, type TermKind } from '@/core/source/terms'
 import { previewGoogle } from '@/services/googlePreview'
 import SiteIcon from './SiteIcon.vue'
 
@@ -27,7 +27,6 @@ const rows = computed(() =>
     index,
     term,
     links: term.text.trim() ? SEARCH_SITES.map((site) => ({ site, url: site.url(term) })) : [],
-    google: term.text.trim() ? GOOGLE.url(term) : null,
   })),
 )
 
@@ -35,28 +34,51 @@ function setText(index: number, event: Event): void {
   terms.value[index].text = (event.target as HTMLInputElement).value.trim()
 }
 
-/** A preview per Google search URL, so editing a term back to an earlier text shows that text's results again. */
-type Preview = { state: 'loading' } | { state: 'timeout' } | ({ state: 'answered' } & PreviewAnswer)
-const previews = reactive<Record<string, Preview>>({})
+/** The whole title as one Google search, previewed here a page at a time. */
+const query = ref(googleQuery(props.source))
 
-const PREVIEW_STATUS: Record<'timeout' | 'empty' | 'blocked' | 'unavailable', MessageKey> = {
+type Page = { state: 'loading' } | { state: 'timeout' } | ({ state: 'answered' } & PreviewAnswer)
+/** Pages fetched so far for `query`, in order; a new query starts over. */
+const pages = ref<Page[]>([])
+
+const PAGE_STATUS: Record<'timeout' | 'empty' | 'blocked' | 'unavailable', MessageKey> = {
   timeout: 'previewTimeout',
   empty: 'previewEmpty',
   blocked: 'previewBlocked',
   unavailable: 'previewUnavailable',
 }
 
-/** The line to show instead of results, or null when there are results to list. */
-function previewNote(preview: Preview): MessageKey | null {
-  if (preview.state === 'loading') return 'previewLoading'
-  if (preview.state === 'timeout') return PREVIEW_STATUS.timeout
-  return preview.status === 'ok' ? null : PREVIEW_STATUS[preview.status]
+/** The line to show instead of a page's results, or null when it has results to list. */
+function pageNote(page: Page): MessageKey | null {
+  if (page.state === 'loading') return 'previewLoading'
+  if (page.state === 'timeout') return PAGE_STATUS.timeout
+  return page.status === 'ok' ? null : PAGE_STATUS[page.status]
 }
 
-async function preview(url: string): Promise<void> {
-  previews[url] = { state: 'loading' }
-  const answer = await previewGoogle(url)
-  previews[url] = answer ? { state: 'answered', ...answer } : { state: 'timeout' }
+const loading = computed(() => pages.value.some((page) => page.state === 'loading'))
+
+/** Another page is worth asking for only after a page that had results. */
+const canPageOn = computed(() => {
+  const last = pages.value.at(-1)
+  return last?.state === 'answered' && last.status === 'ok'
+})
+
+function setQuery(event: Event): void {
+  query.value = (event.target as HTMLInputElement).value.trim()
+  pages.value = []
+}
+
+/** Fetch the page after the last one shown; the first press fetches the first page. */
+async function fetchPage(): Promise<void> {
+  const index = pages.value.length
+  pages.value.push({ state: 'loading' })
+  const answer = await previewGoogle(googleSearchUrl(query.value, index))
+  pages.value[index] = answer ? { state: 'answered', ...answer } : { state: 'timeout' }
+}
+
+function previewFirstPage(): void {
+  pages.value = []
+  void fetchPage()
 }
 </script>
 
@@ -68,6 +90,37 @@ async function preview(url: string): Promise<void> {
         <X :size="14" aria-hidden="true" />
       </button>
     </header>
+    <section class="ehl-source__google">
+      <div class="ehl-source__term">
+        <span class="ehl-source__kind">Google</span>
+        <input class="ehl-source__input" :value="query" @change="setQuery($event)" />
+      </div>
+      <div class="ehl-source__preview">
+        <a :href="googleSearchUrl(query)" target="_blank" rel="noopener"><SiteIcon :href="googleSearchUrl(query)" />Google</a>
+        <button type="button" class="ehl-source__chip" :disabled="loading" @click="previewFirstPage()">
+          <Eye :size="11" aria-hidden="true" />
+          {{ t('previewGoogle') }}
+        </button>
+      </div>
+      <div v-for="(page, index) in pages" :key="index" class="ehl-source__page">
+        <h4 v-if="index > 0" class="ehl-source__page-head">{{ t('previewPage').replace('{n}', String(index + 1)) }}</h4>
+        <p v-if="pageNote(page)" class="ehl-source__note">
+          <LoaderCircle v-if="page.state === 'loading'" :size="11" class="ehl-source__spin" aria-hidden="true" />
+          {{ t(pageNote(page)!) }}
+        </p>
+        <ol v-else-if="page.state === 'answered'" class="ehl-source__results">
+          <li v-for="result in page.results" :key="result.href">
+            <a :href="result.href" target="_blank" rel="noopener"><SiteIcon v-if="citeOrigin(result.cite)" :href="citeOrigin(result.cite)!" />{{ result.title }}</a>
+            <span class="ehl-source__cite">{{ result.cite }}</span>
+            <span class="ehl-source__snippet">{{ result.snippet }}</span>
+          </li>
+        </ol>
+      </div>
+      <button v-if="canPageOn" type="button" class="ehl-source__chip ehl-source__more" :disabled="loading" @click="fetchPage()">
+        <ChevronDown :size="11" aria-hidden="true" />
+        {{ t('previewNextPage') }}
+      </button>
+    </section>
     <div v-for="row in rows" :key="row.index" class="ehl-source__row">
       <div class="ehl-source__term">
         <span class="ehl-source__kind">{{ t(KIND_LABEL[row.term.kind]) }}</span>
@@ -81,23 +134,6 @@ async function preview(url: string): Promise<void> {
           <a :href="link.url" target="_blank" rel="noopener"><SiteIcon :href="link.url" />{{ link.site.name }}</a>
         </li>
       </ul>
-      <div v-if="row.google" class="ehl-source__preview">
-        <button type="button" class="ehl-source__chip" :disabled="previews[row.google]?.state === 'loading'" @click="preview(row.google)">
-          <LoaderCircle v-if="previews[row.google]?.state === 'loading'" :size="11" class="ehl-source__spin" aria-hidden="true" />
-          <Eye v-else :size="11" aria-hidden="true" />
-          {{ t('previewGoogle') }}
-        </button>
-        <template v-if="previews[row.google]">
-          <p v-if="previewNote(previews[row.google])" class="ehl-source__note">{{ t(previewNote(previews[row.google])!) }}</p>
-          <ol v-else-if="previews[row.google].state === 'answered'" class="ehl-source__results">
-            <li v-for="result in (previews[row.google] as PreviewAnswer).results" :key="result.href">
-              <a :href="result.href" target="_blank" rel="noopener"><SiteIcon v-if="citeOrigin(result.cite)" :href="citeOrigin(result.cite)!" />{{ result.title }}</a>
-              <span class="ehl-source__cite">{{ result.cite }}</span>
-              <span class="ehl-source__snippet">{{ result.snippet }}</span>
-            </li>
-          </ol>
-        </template>
-      </div>
     </div>
     <div class="ehl-source__add">
       <span>{{ t('termAdd') }}</span>
@@ -108,9 +144,9 @@ async function preview(url: string): Promise<void> {
 
 <style>
 /* Hangs under its bar button like the settings popup, kept to the right edge of
-   the column; tall enough for three terms with a page of results each before
-   it scrolls. Long enough to reach the ad slot under `.gm`, whose iframe
-   (`#pdapap`) is `position: relative; z-index: 260` (observed 2026-10). */
+   the column; it scrolls once the Google pages outgrow the screen. Long enough
+   to reach the ad slot under `.gm`, whose iframe (`#pdapap`) is
+   `position: relative; z-index: 260` (observed 2026-10). */
 .ehl-source {
   position: absolute;
   top: 100%;
@@ -195,8 +231,32 @@ async function preview(url: string): Promise<void> {
 .ehl-source__chip:hover {
   opacity: 1;
 }
+.ehl-source__google {
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed var(--ehl-border, currentColor);
+}
 .ehl-source__preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 4px 0 0 calc(5em + 6px);
+}
+.ehl-source__preview a {
+  font-weight: 700;
+  text-decoration: none;
+}
+.ehl-source__page {
+  margin-left: calc(5em + 6px);
+}
+.ehl-source__page-head {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+.ehl-source__more {
+  margin: 6px 0 0 calc(5em + 6px);
 }
 .ehl-source__chip:disabled {
   cursor: default;

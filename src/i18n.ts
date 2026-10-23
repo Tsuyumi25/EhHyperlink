@@ -110,6 +110,8 @@ const MESSAGES = {
   termAdd: { en: 'Add', zh: '新增', ja: '追加' },
   termRemove: { en: 'Remove this term', zh: '刪除這個關鍵字', ja: 'このキーワードを削除' },
   previewGoogle: { en: 'Preview Google', zh: '預覽 Google', ja: 'Google をプレビュー' },
+  previewPage: { en: 'Page {n}', zh: '第 {n} 頁', ja: '{n} ページ目' },
+  previewNextPage: { en: 'Next page', zh: '下一頁', ja: '次のページ' },
   previewLoading: { en: 'Loading Google in a background tab…', zh: '正在背景分頁打開 Google…', ja: 'バックグラウンドのタブで Google を読み込み中…' },
   previewTimeout: { en: 'The Google tab did not answer in time', zh: 'Google 分頁沒有及時回應', ja: 'Google のタブから時間内に応答がありません' },
   previewEmpty: { en: 'Google shows no results', zh: 'Google 沒有搜尋結果', ja: 'Google に検索結果がありません' },

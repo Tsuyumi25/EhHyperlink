@@ -33,6 +33,11 @@ async function mountGalleryPage(): Promise<void> {
   createApp(App).mount(container)
 }
 
+/** `www.google.com` or a country domain it redirects to (`www.google.com.hk`). */
+function isGoogle(hostname: string): boolean {
+  return hostname.startsWith('www.google.')
+}
+
 // A Google search page only answers the gallery page's preview request, if it is one.
-if (location.hostname === 'www.google.com') await answerGooglePreview()
+if (isGoogle(location.hostname)) await answerGooglePreview()
 else await mountGalleryPage()

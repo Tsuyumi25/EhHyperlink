@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { PREVIEW_TTL_MS, requestFor, requestOf, searchKey, searchOf, withRequestId } from './preview'
-import { googleSearchUrl } from './sites'
+import { googleSearchOf, googleSearchUrl } from './google'
+import { PREVIEW_TTL_MS, requestFor, requestOf, withRequestId } from './preview'
 
 const NOW = 1_000_000
-const key = (query: string, page = 0): string => searchKey(new URL(googleSearchUrl(query, page))) as string
+const key = (query: string, page = 0): string => googleSearchOf(new URL(googleSearchUrl(query, page)))?.key as string
 
 describe('requestOf', () => {
   // Two gallery tabs preview the same search at once: both requests share a
@@ -20,7 +20,7 @@ describe('requestOf', () => {
   // page shows is untouched by it.
   it('keeps the search and the id apart', () => {
     const opened = new URL(withRequestId(googleSearchUrl('作品乙', 1), 'a'))
-    expect(searchKey(opened)).toBe(key('作品乙', 1))
+    expect(googleSearchOf(opened)?.key).toBe(key('作品乙', 1))
     expect(opened.hash).toBe('#ehl-preview=a')
   })
 
@@ -65,22 +65,5 @@ describe('requestFor', () => {
     const stale = { id: 'a', key: key('作品乙'), at: NOW - PREVIEW_TTL_MS - 1 }
     expect(requestFor([stale], key('作品乙'), NOW)).toBeNull()
     expect(requestFor([stale], key('something else'), NOW)).toBeNull()
-  })
-})
-
-describe('searchOf', () => {
-  it('reads the search off a results page', () => {
-    expect(searchOf(new URL(googleSearchUrl('作品乙', 2)))).toEqual({ key: key('作品乙', 2), blocked: false })
-  })
-
-  // The "unusual traffic" page keeps the original search in `continue`; the
-  // request is still found, and answered as blocked.
-  it('finds the search behind the unusual-traffic page', () => {
-    const next = encodeURIComponent(googleSearchUrl('作品乙', 1))
-    expect(searchOf(new URL(`https://www.google.com/sorry/index?continue=${next}&q=EgQ`))).toEqual({ key: key('作品乙', 1), blocked: true })
-  })
-
-  it('reads nothing off a page without a search', () => {
-    expect(searchOf(new URL('https://www.google.com/search'))).toBeNull()
   })
 })

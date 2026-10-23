@@ -1,7 +1,8 @@
 import { createApp } from 'vue'
 import App from '@/App.vue'
 import { loadSettings } from '@/settings'
-import { answerGooglePreview } from '@/services/googlePreview'
+import { answerPreview } from '@/services/preview'
+import { previewSiteFor } from '@/services/previewSites'
 
 /** `transparent` or an rgba() with zero alpha, as getComputedStyle reports unpainted backgrounds. */
 function isTransparent(color: string): boolean {
@@ -33,11 +34,7 @@ async function mountGalleryPage(): Promise<void> {
   createApp(App).mount(container)
 }
 
-/** `www.google.com` or a country domain it redirects to (`www.google.com.hk`). */
-function isGoogle(hostname: string): boolean {
-  return hostname.startsWith('www.google.')
-}
-
-// A Google search page only answers the gallery page's preview request, if it is one.
-if (isGoogle(location.hostname)) await answerGooglePreview()
+// A search page of a previewed site only answers the gallery page's request, if it is one.
+const previewSite = previewSiteFor(new URL(location.href))
+if (previewSite) await answerPreview(previewSite)
 else await mountGalleryPage()

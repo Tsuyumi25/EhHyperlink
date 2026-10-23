@@ -1,12 +1,11 @@
-import type { GoogleResult } from './googleResults'
-
 /**
- * A Google search the gallery page opened in a background tab and waits on.
- * The tab is opened with the request's id in its fragment and answers that
- * request; the fragment survives Google's redirect to a country domain
- * (observed 2026-10), so two gallery tabs previewing the same search each get
- * their own answer. `key` — the query and result offset — is the fallback for
- * a page that lost the fragment, such as the "unusual traffic" page.
+ * A search the gallery page opened in a background tab and waits on. The tab
+ * is opened with the request's id in its fragment and answers that request;
+ * the fragment survives Google's redirect to a country domain (observed
+ * 2026-10), so two gallery tabs previewing the same search each get their own
+ * answer. `key` — the search and the page of it, as each site's reader names
+ * them — is the fallback for a page that lost the fragment, such as Google's
+ * "unusual traffic" page or a site that rewrites its URL as it loads.
  */
 export interface PreviewRequest {
   id: string
@@ -14,29 +13,41 @@ export interface PreviewRequest {
   at: number
 }
 
-/** `unavailable`: the userscript manager gives this script no way to open a tab. */
-export type PreviewStatus = 'ok' | 'empty' | 'blocked' | 'unavailable'
+/** One result as the site lists it, reduced to what the popup shows. */
+export interface PreviewResult {
+  title: string
+  href: string
+  /** whose icon to show; null when the result does not say where it leads */
+  origin: string | null
+  /** the line under the title: a breadcrumb, a circle and its authors, an artist */
+  byline: string
+  snippet: string
+}
+
+/**
+ * `blocked`: the site asked to prove the reader is human.
+ * `unreadable`: the page loaded but showed neither results nor "no results" —
+ * an age check, a sign-in page, or markup this reader no longer knows.
+ * `unavailable`: the userscript manager gives this script no way to open a tab.
+ */
+export type PreviewStatus = 'ok' | 'empty' | 'blocked' | 'unreadable' | 'unavailable'
 
 export interface PreviewAnswer {
   status: PreviewStatus
-  results: GoogleResult[]
+  results: PreviewResult[]
 }
 
-/** Google pages its results ten at a time through `start`. */
-export const RESULTS_PER_PAGE = 10
+/** What a site's page says about itself: which search it shows, and whether it is a "prove you are human" page. */
+export interface SearchOnPage {
+  key: string
+  blocked: boolean
+}
 
 /** A tab that has not answered by now never will; its request stops matching. */
 export const PREVIEW_TTL_MS = 60_000
 
 export function isFresh(request: PreviewRequest, now: number): boolean {
   return now - request.at <= PREVIEW_TTL_MS
-}
-
-/** The search a Google URL shows, as the key a request is filed under; null without a query. */
-export function searchKey(url: URL): string | null {
-  const query = url.searchParams.get('q')
-  if (query === null) return null
-  return `${query}\u0000${url.searchParams.get('start') ?? '0'}`
 }
 
 const ID_FIELD = 'ehl-preview'
@@ -52,31 +63,15 @@ export function requestIdOf(url: URL): string | null {
   return new URLSearchParams(url.hash.slice(1)).get(ID_FIELD)
 }
 
-/** The request a page answers: the one its fragment names, or by its search when the fragment is gone. */
-export function requestOf(requests: readonly PreviewRequest[], url: URL, key: string, now: number): PreviewRequest | null {
-  const id = requestIdOf(url)
-  if (id === null) return requestFor(requests, key, now)
-  return requests.filter((request) => isFresh(request, now)).find((request) => request.id === id) ?? null
-}
-
 /** The newest unexpired request for this search, if the gallery page made one. */
 export function requestFor(requests: readonly PreviewRequest[], key: string, now: number): PreviewRequest | null {
   const matching = requests.filter((request) => request.key === key && isFresh(request, now))
   return matching.at(-1) ?? null
 }
 
-/**
- * The search a Google page answers for. On the "unusual traffic" page
- * (`/sorry/index`) the search waits in the `continue` URL, and the request is
- * answered as blocked instead of hanging until it times out.
- */
-export function searchOf(url: URL): { key: string; blocked: boolean } | null {
-  if (url.pathname.startsWith('/sorry')) {
-    const next = url.searchParams.get('continue')
-    if (!next) return null
-    const key = searchKey(new URL(next))
-    return key === null ? null : { key, blocked: true }
-  }
-  const key = searchKey(url)
-  return key === null ? null : { key, blocked: false }
+/** The request a page answers: the one its fragment names, or by its search when the fragment is gone. */
+export function requestOf(requests: readonly PreviewRequest[], url: URL, key: string, now: number): PreviewRequest | null {
+  const id = requestIdOf(url)
+  if (id === null) return requestFor(requests, key, now)
+  return requests.filter((request) => isFresh(request, now)).find((request) => request.id === id) ?? null
 }

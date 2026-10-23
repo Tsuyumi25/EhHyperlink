@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { ChevronDown, Eye, LoaderCircle, Trash2, X } from '@lucide/vue'
+import { computed, reactive, ref } from 'vue'
+import { Eye, Trash2, X } from '@lucide/vue'
 import { t, type MessageKey } from '@/i18n'
 import type { SourceGallery } from '@/core/eh/galleryPage'
-import { citeOrigin } from '@/core/source/googleResults'
-import type { PreviewAnswer } from '@/core/source/preview'
-import { googleSearchUrl, SEARCH_SITES } from '@/core/source/sites'
+import { googleSearchUrl } from '@/core/source/google'
+import { SEARCH_SITES } from '@/core/source/sites'
 import { googleQuery, searchTerms, type SearchTerm, type TermKind } from '@/core/source/terms'
-import { previewGoogle } from '@/services/googlePreview'
+import { previewSiteFor } from '@/services/previewSites'
+import PreviewPages from './PreviewPages.vue'
 import SiteIcon from './SiteIcon.vue'
 
 const props = defineProps<{ source: SourceGallery }>()
@@ -22,63 +22,48 @@ const KINDS: readonly TermKind[] = ['work', 'circle', 'artist']
 
 const terms = ref<SearchTerm[]>(searchTerms(props.source))
 
+/** Whether the popup can preview this link's results in place. */
+function previewable(url: string): boolean {
+  return previewSiteFor(new URL(url)) !== null
+}
+
 const rows = computed(() =>
   terms.value.map((term, index) => ({
+    key: `term-${index}`,
     index,
     term,
-    links: term.text.trim() ? SEARCH_SITES.map((site) => ({ site, url: site.url(term) })) : [],
+    links: term.text.trim() ? SEARCH_SITES.map((site) => ({ site, url: site.url(term), previewable: previewable(site.url(term)) })) : [],
   })),
 )
 
 function setText(index: number, event: Event): void {
   terms.value[index].text = (event.target as HTMLInputElement).value.trim()
+  opened[`term-${index}`] = undefined
 }
 
-/** The whole title as one Google search, previewed here a page at a time. */
+/** Rows are keyed by position, so removing one closes every term preview rather than moving it to a neighbour. */
+function removeTerm(index: number): void {
+  terms.value.splice(index, 1)
+  for (const key of Object.keys(opened)) if (key.startsWith('term-')) opened[key] = undefined
+}
+
+/** The whole title as one Google search. */
 const query = ref(googleQuery(props.source))
-
-type Page = { state: 'loading' } | { state: 'timeout' } | ({ state: 'answered' } & PreviewAnswer)
-/** Pages fetched so far for `query`, in order; a new query starts over. */
-const pages = ref<Page[]>([])
-
-const PAGE_STATUS: Record<'timeout' | 'empty' | 'blocked' | 'unavailable', MessageKey> = {
-  timeout: 'previewTimeout',
-  empty: 'previewEmpty',
-  blocked: 'previewBlocked',
-  unavailable: 'previewUnavailable',
-}
-
-/** The line to show instead of a page's results, or null when it has results to list. */
-function pageNote(page: Page): MessageKey | null {
-  if (page.state === 'loading') return 'previewLoading'
-  if (page.state === 'timeout') return PAGE_STATUS.timeout
-  return page.status === 'ok' ? null : PAGE_STATUS[page.status]
-}
-
-const loading = computed(() => pages.value.some((page) => page.state === 'loading'))
-
-/** Another page is worth asking for only after a page that had results. */
-const canPageOn = computed(() => {
-  const last = pages.value.at(-1)
-  return last?.state === 'answered' && last.status === 'ok'
-})
+const googleUrl = computed(() => googleSearchUrl(query.value))
 
 function setQuery(event: Event): void {
   query.value = (event.target as HTMLInputElement).value.trim()
-  pages.value = []
+  if (opened.google) opened.google = googleUrl.value
 }
 
-/** Fetch the page after the last one shown; the first press fetches the first page. */
-async function fetchPage(): Promise<void> {
-  const index = pages.value.length
-  pages.value.push({ state: 'loading' })
-  const answer = await previewGoogle(googleSearchUrl(query.value, index))
-  pages.value[index] = answer ? { state: 'answered', ...answer } : { state: 'timeout' }
-}
+/**
+ * The search each row is previewing, if any: one per row, so opening another
+ * site's preview on the same term replaces it.
+ */
+const opened = reactive<Record<string, string | undefined>>({})
 
-function previewFirstPage(): void {
-  pages.value = []
-  void fetchPage()
+function togglePreview(row: string, url: string): void {
+  opened[row] = opened[row] === url ? undefined : url
 }
 </script>
 
@@ -95,45 +80,40 @@ function previewFirstPage(): void {
         <span class="ehl-source__kind">Google</span>
         <input class="ehl-source__input" :value="query" @change="setQuery($event)" />
       </div>
-      <div class="ehl-source__preview">
-        <a :href="googleSearchUrl(query)" target="_blank" rel="noopener"><SiteIcon :href="googleSearchUrl(query)" />Google</a>
-        <button type="button" class="ehl-source__chip" :disabled="loading" @click="previewFirstPage()">
-          <Eye :size="11" aria-hidden="true" />
-          {{ t('previewGoogle') }}
-        </button>
-      </div>
-      <div v-for="(page, index) in pages" :key="index" class="ehl-source__page">
-        <h4 v-if="index > 0" class="ehl-source__page-head">{{ t('previewPage').replace('{n}', String(index + 1)) }}</h4>
-        <p v-if="pageNote(page)" class="ehl-source__note">
-          <LoaderCircle v-if="page.state === 'loading'" :size="11" class="ehl-source__spin" aria-hidden="true" />
-          {{ t(pageNote(page)!) }}
-        </p>
-        <ol v-else-if="page.state === 'answered'" class="ehl-source__results">
-          <li v-for="result in page.results" :key="result.href">
-            <a :href="result.href" target="_blank" rel="noopener"><SiteIcon v-if="citeOrigin(result.cite)" :href="citeOrigin(result.cite)!" />{{ result.title }}</a>
-            <span class="ehl-source__cite">{{ result.cite }}</span>
-            <span class="ehl-source__snippet">{{ result.snippet }}</span>
-          </li>
-        </ol>
-      </div>
-      <button v-if="canPageOn" type="button" class="ehl-source__chip ehl-source__more" :disabled="loading" @click="fetchPage()">
-        <ChevronDown :size="11" aria-hidden="true" />
-        {{ t('previewNextPage') }}
-      </button>
+      <ul class="ehl-source__links">
+        <li>
+          <a :href="googleUrl" target="_blank" rel="noopener"><SiteIcon :href="googleUrl" />Google</a>
+          <button type="button" class="ehl-source__peek" :class="{ 'ehl-source__peek--open': opened.google === googleUrl }" :title="t('previewPages')" @click="togglePreview('google', googleUrl)">
+            <Eye :size="11" aria-hidden="true" />
+          </button>
+        </li>
+      </ul>
+      <PreviewPages v-if="opened.google" :key="opened.google" class="ehl-source__previews" :url="opened.google" />
     </section>
     <div v-for="row in rows" :key="row.index" class="ehl-source__row">
       <div class="ehl-source__term">
         <span class="ehl-source__kind">{{ t(KIND_LABEL[row.term.kind]) }}</span>
         <input class="ehl-source__input" :value="row.term.text" @change="setText(row.index, $event)" />
-        <button type="button" class="ehl-source__icon" :title="t('termRemove')" @click="terms.splice(row.index, 1)">
+        <button type="button" class="ehl-source__icon" :title="t('termRemove')" @click="removeTerm(row.index)">
           <Trash2 :size="12" aria-hidden="true" />
         </button>
       </div>
       <ul class="ehl-source__links">
         <li v-for="link in row.links" :key="link.site.id">
           <a :href="link.url" target="_blank" rel="noopener"><SiteIcon :href="link.url" />{{ link.site.name }}</a>
+          <button
+            v-if="link.previewable"
+            type="button"
+            class="ehl-source__peek"
+            :class="{ 'ehl-source__peek--open': opened[row.key] === link.url }"
+            :title="t('previewPages')"
+            @click="togglePreview(row.key, link.url)"
+          >
+            <Eye :size="11" aria-hidden="true" />
+          </button>
         </li>
       </ul>
+      <PreviewPages v-if="opened[row.key]" :key="opened[row.key]" class="ehl-source__previews" :url="opened[row.key]!" />
     </div>
     <div class="ehl-source__add">
       <span>{{ t('termAdd') }}</span>
@@ -236,72 +216,31 @@ function previewFirstPage(): void {
   margin-bottom: 6px;
   border-bottom: 1px dashed var(--ehl-border, currentColor);
 }
-.ehl-source__preview {
-  display: flex;
+.ehl-source__links li {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 1px;
+}
+.ehl-source__peek {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0 2px;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.45;
+}
+.ehl-source__peek:hover,
+.ehl-source__peek--open {
+  opacity: 1;
+}
+.ehl-source__peek--open {
+  box-shadow: inset 0 -2px 0 currentColor;
+}
+.ehl-source__previews {
   margin: 4px 0 0 calc(5em + 6px);
-}
-.ehl-source__preview a {
-  font-weight: 700;
-  text-decoration: none;
-}
-.ehl-source__page {
-  margin-left: calc(5em + 6px);
-}
-.ehl-source__page-head {
-  margin: 6px 0 0;
-  font-size: 11px;
-  font-weight: 700;
-  opacity: 0.7;
-}
-.ehl-source__more {
-  margin: 6px 0 0 calc(5em + 6px);
-}
-.ehl-source__chip:disabled {
-  cursor: default;
-}
-.ehl-source__spin {
-  animation: ehl-source-spin 1s linear infinite;
-}
-@keyframes ehl-source-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.ehl-source__note {
-  margin: 4px 0 0;
-  opacity: 0.7;
-}
-.ehl-source__results {
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.ehl-source__results li {
-  display: flex;
-  flex-direction: column;
-  padding: 3px 0;
-}
-.ehl-source__results li + li {
-  border-top: 1px dashed currentColor;
-  border-top-color: color-mix(in srgb, currentColor 25%, transparent);
-}
-.ehl-source__results a {
-  font-weight: 700;
-  text-decoration: none;
-}
-.ehl-source__cite {
-  font-size: 8pt;
-  opacity: 0.7;
-}
-/* Two lines of the snippet are enough to tell a store page from a forum thread. */
-.ehl-source__snippet {
-  display: -webkit-box;
-  overflow: hidden;
-  font-size: 8pt;
-  opacity: 0.85;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 </style>

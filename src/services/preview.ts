@@ -1,15 +1,13 @@
 import { GM_addValueChangeListener, GM_openInTab, GM_removeValueChangeListener } from '$'
-import { readGoogleResults } from '@/core/source/googleResults'
-import { isFresh, requestOf, searchKey, searchOf, withRequestId, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
+import { isFresh, requestOf, withRequestId, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
 import { storageGet, storageRemove, storageSet } from '@/services/gmStorage'
+import type { PreviewSite } from '@/services/previewSites'
 
 const REQUESTS_KEY = 'ehl_preview_requests_v1'
 const answerKey = (id: string): string => `ehl_preview_answer_${id}`
 
 /** How long the gallery page waits for the tab before closing it. */
 const ANSWER_TIMEOUT_MS = 20_000
-/** How long the Google tab waits for results to render. */
-const RENDER_TIMEOUT_MS = 8_000
 
 async function readRequests(): Promise<PreviewRequest[]> {
   const raw = await storageGet(REQUESTS_KEY)
@@ -61,15 +59,17 @@ function waitForAnswer(id: string): Promise<PreviewAnswer | null> {
 }
 
 /**
- * Open the search in a background tab of the reader's own browser — signed in,
- * past any consent page they already accepted — and bring back what the page
- * shows. Null when the tab did not answer in time.
+ * Open `url` — a search of `site` — in a background tab of the reader's own
+ * browser, signed in and past any check they already passed, and bring back
+ * what it shows. The gallery page closes the tab itself: a tab the manager
+ * opened cannot always close itself with `window.close()`. Null when the tab
+ * did not answer in time.
  */
-export async function previewGoogle(url: string): Promise<PreviewAnswer | null> {
+export async function previewPage(site: PreviewSite, url: string): Promise<PreviewAnswer | null> {
   // An installed dev loader older than the current grant list hands the script
   // no GM API at all; say so instead of throwing.
   if (typeof GM_openInTab !== 'function') return { status: 'unavailable', results: [] }
-  const key = searchKey(new URL(url)) ?? ''
+  const key = site.searchOf(new URL(url))?.key ?? ''
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
   const now = Date.now()
   const requests = (await readRequests()).filter((request) => isFresh(request, now))
@@ -83,34 +83,17 @@ export async function previewGoogle(url: string): Promise<PreviewAnswer | null> 
   return result
 }
 
-/** Wait for the first result title to render, at most `RENDER_TIMEOUT_MS`. */
-async function renderedResults(): Promise<void> {
-  const started = Date.now()
-  while (!document.querySelector('#search a h3')) {
-    if (Date.now() - started > RENDER_TIMEOUT_MS) return
-    const { promise, resolve } = Promise.withResolvers<void>()
-    window.setTimeout(resolve, 250)
-    await promise
-  }
-}
-
 /**
- * On a Google search page: answer the gallery page's request for this search,
- * if it made one. Any other Google search the reader runs is left alone after
- * one storage read.
+ * On one of a site's search pages: answer the gallery page's request for this
+ * search, if it made one. A search the reader runs on their own is left alone
+ * after one storage read.
  */
-export async function answerGooglePreview(): Promise<void> {
+export async function answerPreview(site: PreviewSite): Promise<void> {
   const here = new URL(location.href)
-  const asked = searchOf(here)
+  const asked = site.searchOf(here)
   if (!asked) return
   const request = requestOf(await readRequests(), here, asked.key, Date.now())
   if (!request) return
-  if (asked.blocked) {
-    await storageSet(answerKey(request.id), JSON.stringify({ status: 'blocked', results: [] } satisfies PreviewAnswer))
-    return
-  }
-  await renderedResults()
-  const results = readGoogleResults(document)
-  const answer: PreviewAnswer = { status: results.length > 0 ? 'ok' : 'empty', results }
+  const answer: PreviewAnswer = asked.blocked ? { status: 'blocked', results: [] } : await site.read(here)
   await storageSet(answerKey(request.id), JSON.stringify(answer))
 }

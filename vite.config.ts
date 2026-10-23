@@ -35,12 +35,13 @@ export default defineConfig({
       entry: 'src/main.ts',
       userscript: {
         namespace: 'https://github.com/Tsuyumi25/EhHyperlink',
-        match: ['https://exhentai.org/g/*', 'https://e-hentai.org/g/*'],
-        // Google search pages answer the gallery page's preview (src/services/googlePreview.ts).
-        // A regex because Google may redirect `www.google.com/search` to a
-        // country domain (seen: `www.google.com.hk`, keeping `q` and adding `sei`),
-        // and match patterns cannot wildcard a TLD.
-        include: [/^https:\/\/www\.google\.[a-z.]+\/search/],
+        // Gallery pages, plus the search pages that answer the gallery page's
+        // preview (src/services/preview.ts) and do nothing otherwise.
+        match: ['https://exhentai.org/g/*', 'https://e-hentai.org/g/*', 'https://www.dlsite.com/*/fsr/*'],
+        // Regexes where a match pattern cannot say it: Google may redirect
+        // `www.google.com/search` to a country domain (seen: `www.google.com.hk`,
+        // keeping `q` and adding `sei`), and pixiv serves English readers under `/en/`.
+        include: [/^https:\/\/www\.google\.[a-z.]+\/search/, /^https:\/\/www\.pixiv\.net\/(en\/)?search/],
         name: {
           '': 'EH Hyperlink',
           'zh-TW': 'EH 語言版本跳轉',

@@ -1,9 +1,44 @@
 import { describe, expect, it } from 'vitest'
-import { PREVIEW_TTL_MS, requestFor, searchKey, searchOf } from './preview'
+import { PREVIEW_TTL_MS, requestFor, requestOf, searchKey, searchOf, withRequestId } from './preview'
 import { googleSearchUrl } from './sites'
 
 const NOW = 1_000_000
 const key = (query: string, page = 0): string => searchKey(new URL(googleSearchUrl(query, page))) as string
+
+describe('requestOf', () => {
+  // Two gallery tabs preview the same search at once: both requests share a
+  // key, and each background tab answers the one its fragment names, not
+  // whichever came last.
+  it('answers the request named in the fragment', () => {
+    const first = { id: 'a', key: key('作品乙'), at: NOW - 1000 }
+    const second = { id: 'b', key: key('作品乙'), at: NOW }
+    const opened = new URL(withRequestId(googleSearchUrl('作品乙'), 'a'))
+    expect(requestOf([first, second], opened, key('作品乙'), NOW)).toBe(first)
+  })
+
+  // The fragment rides along a redirect to a country domain; the query the
+  // page shows is untouched by it.
+  it('keeps the search and the id apart', () => {
+    const opened = new URL(withRequestId(googleSearchUrl('作品乙', 1), 'a'))
+    expect(searchKey(opened)).toBe(key('作品乙', 1))
+    expect(opened.hash).toBe('#ehl-preview=a')
+  })
+
+  // A page that lost the fragment falls back to its search.
+  it('falls back to the search when the fragment is gone', () => {
+    const only = { id: 'a', key: key('作品乙'), at: NOW }
+    expect(requestOf([only], new URL(googleSearchUrl('作品乙')), key('作品乙'), NOW)).toBe(only)
+  })
+
+  // A named request that expired is not answered, and another fresh request
+  // for the same search does not stand in for it.
+  it('answers nothing when the named request expired', () => {
+    const stale = { id: 'a', key: key('作品乙'), at: NOW - PREVIEW_TTL_MS - 1 }
+    const fresh = { id: 'b', key: key('作品乙'), at: NOW }
+    const opened = new URL(withRequestId(googleSearchUrl('作品乙'), 'a'))
+    expect(requestOf([stale, fresh], opened, key('作品乙'), NOW)).toBeNull()
+  })
+})
 
 describe('requestFor', () => {
   // The reader may preview the same search twice; the newer request is the one

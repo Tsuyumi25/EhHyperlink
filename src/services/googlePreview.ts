@@ -1,6 +1,6 @@
 import { GM_addValueChangeListener, GM_openInTab, GM_removeValueChangeListener } from '$'
 import { readGoogleResults } from '@/core/source/googleResults'
-import { isFresh, requestFor, searchKey, searchOf, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
+import { isFresh, requestOf, searchKey, searchOf, withRequestId, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
 import { storageGet, storageRemove, storageSet } from '@/services/gmStorage'
 
 const REQUESTS_KEY = 'ehl_preview_requests_v1'
@@ -76,7 +76,7 @@ export async function previewGoogle(url: string): Promise<PreviewAnswer | null> 
   requests.push({ id, key, at: now })
   await storageSet(REQUESTS_KEY, JSON.stringify(requests))
   const answer = waitForAnswer(id)
-  const tab = GM_openInTab(url, { active: false, insert: true })
+  const tab = GM_openInTab(withRequestId(url, id), { active: false, insert: true })
   const result = await answer
   tab.close()
   await storageRemove(answerKey(id))
@@ -100,9 +100,10 @@ async function renderedResults(): Promise<void> {
  * one storage read.
  */
 export async function answerGooglePreview(): Promise<void> {
-  const asked = searchOf(new URL(location.href))
+  const here = new URL(location.href)
+  const asked = searchOf(here)
   if (!asked) return
-  const request = requestFor(await readRequests(), asked.key, Date.now())
+  const request = requestOf(await readRequests(), here, asked.key, Date.now())
   if (!request) return
   if (asked.blocked) {
     await storageSet(answerKey(request.id), JSON.stringify({ status: 'blocked', results: [] } satisfies PreviewAnswer))

@@ -2,9 +2,11 @@ import type { GoogleResult } from './googleResults'
 
 /**
  * A Google search the gallery page opened in a background tab and waits on.
- * The tab finds its request by the search it shows — the query and the result
- * offset (`start`) — so the URL it opens is a plain search URL, the same one
- * the popup links to, and two pages of one query are two requests.
+ * The tab is opened with the request's id in its fragment and answers that
+ * request; the fragment survives Google's redirect to a country domain
+ * (observed 2026-10), so two gallery tabs previewing the same search each get
+ * their own answer. `key` — the query and result offset — is the fallback for
+ * a page that lost the fragment, such as the "unusual traffic" page.
  */
 export interface PreviewRequest {
   id: string
@@ -35,6 +37,26 @@ export function searchKey(url: URL): string | null {
   const query = url.searchParams.get('q')
   if (query === null) return null
   return `${query}\u0000${url.searchParams.get('start') ?? '0'}`
+}
+
+const ID_FIELD = 'ehl-preview'
+
+/** `url` with the request id in its fragment, which the search itself never reads. */
+export function withRequestId(url: string, id: string): string {
+  const target = new URL(url)
+  target.hash = `${ID_FIELD}=${id}`
+  return target.href
+}
+
+export function requestIdOf(url: URL): string | null {
+  return new URLSearchParams(url.hash.slice(1)).get(ID_FIELD)
+}
+
+/** The request a page answers: the one its fragment names, or by its search when the fragment is gone. */
+export function requestOf(requests: readonly PreviewRequest[], url: URL, key: string, now: number): PreviewRequest | null {
+  const id = requestIdOf(url)
+  if (id === null) return requestFor(requests, key, now)
+  return requests.filter((request) => isFresh(request, now)).find((request) => request.id === id) ?? null
 }
 
 /** The newest unexpired request for this search, if the gallery page made one. */

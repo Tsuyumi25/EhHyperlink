@@ -110,7 +110,8 @@ function stepMaxRequests(by: number): void {
   border: 1px solid var(--ehl-border, currentColor);
   border-radius: 0 0 9px 9px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
-  z-index: 10;
+  /* above the bar's lists (App.vue), which may be open beside it */
+  z-index: 21;
 }
 .ehl-settings__group + .ehl-settings__group {
   border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);

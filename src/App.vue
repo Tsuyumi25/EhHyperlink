@@ -144,6 +144,9 @@ function toggle(id: string): void {
   pinned.value = pinned.value === id ? null : id
 }
 
+/** Settings stay open beside whatever else is shown, so a change can be watched as it applies; only their own button closes them. */
+const settingsOpen = ref(false)
+
 const searchStarted = ref(false)
 /** The search view stands in for `.gm`, so it has its own open state apart from the bar's popovers. */
 const searchOpen = ref(false)
@@ -221,10 +224,10 @@ watch(searchOpen, (shown) => {
         </button>
       </div>
       <div class="ehl-unit">
-        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'settings', 'ehl-tab--pinned': pinned === 'settings' }" :title="t('settings')" @click="toggle('settings')">
+        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': settingsOpen, 'ehl-tab--pinned': settingsOpen }" :title="t('settings')" @click="settingsOpen = !settingsOpen">
           <Settings :size="14" aria-hidden="true" />
         </button>
-        <SettingsPopup v-if="open === 'settings'" />
+        <SettingsPopup v-if="settingsOpen" />
       </div>
     </div>
   </div>
@@ -374,7 +377,9 @@ watch(searchOpen, (shown) => {
   border: 1px solid var(--ehl-border, currentColor);
   border-radius: 0 0 9px 9px;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
-  z-index: 10;
+  /* Above `.tj-box` (EhTagTranslation's TranslatedJump), which sits at the
+     top right of `.gm` with z-index 10, later in the page than this bar. */
+  z-index: 20;
 }
 .ehl-unit--open .ehl-list {
   display: block;
@@ -637,7 +642,7 @@ watch(searchOpen, (shown) => {
   background: var(--ehl-bg, #fff);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
   pointer-events: none;
-  z-index: 11;
+  z-index: 22;
 }
 /* The cover is what gives way when the text below needs the room: the text is the
    part a reader cannot get anywhere else. A gallery carrying thirty tags can outrun

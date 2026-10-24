@@ -42,6 +42,10 @@ export default defineConfig({
         // `www.google.com/search` to a country domain (seen: `www.google.com.hk`,
         // keeping `q` and adding `sei`), and pixiv serves English readers under `/en/`.
         include: [/^https:\/\/www\.google\.[a-z.]+\/search/, /^https:\/\/www\.pixiv\.net\/(en\/)?search/],
+        // pixiv thumbnails, fetched with pixiv as the referrer (src/services/thumb.ts);
+        // `self` for Google's result redirects, resolved on whichever country
+        // domain the search landed on (src/services/redirect.ts).
+        connect: ['i.pximg.net', 'self'],
         name: {
           '': 'EH Hyperlink',
           'zh-TW': 'EH 語言版本跳轉',

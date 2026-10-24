@@ -73,3 +73,6 @@ export function compile(input: Input<string>, flags: readonly Flag[] = []): RegE
 
 /** One or more whitespace characters; the usual `split` / `replace` argument. */
 export const whitespaceRun = compile(oneOrMore(whitespace), ['g'])
+
+/** One or more whitespace, punctuation or symbol characters: what separates the words of a title. */
+export const wordBreakRun = compile(oneOrMore(anyOf(whitespace, punctuation)), ['g'])

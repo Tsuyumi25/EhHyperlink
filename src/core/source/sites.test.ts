@@ -20,6 +20,11 @@ describe('SEARCH_SITES', () => {
     expect(urlOf('melonbooks', 'circle')).toBe('https://www.melonbooks.co.jp/search/search.php?name=Circle%20Alpha&text_type=maker')
   })
 
+  // DLsite answers a `%20` in its keyword path with 403 and reads `+` as a space.
+  it('writes a space in a DLsite keyword as +', () => {
+    expect(urlOf('dlsite', 'circle')).toBe('https://www.dlsite.com/maniax/fsr/=/keyword/Circle+Alpha/')
+  })
+
   // Every term row lists the same sites, so no site may depend on a term the
   // gallery did not yield.
   it('builds a URL for every site and every kind', () => {

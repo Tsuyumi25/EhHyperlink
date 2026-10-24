@@ -44,6 +44,10 @@ function setMaxRequests(event: Event): void {
       <input v-model="settings.languages" type="checkbox" true-value="all" false-value="account" />
       {{ t('settingShowExcludedLanguages') }}
     </label>
+    <label class="ehl-settings__row ehl-settings__option">
+      <input v-model="settings.debug" type="checkbox" />
+      {{ t('settingDebug') }}
+    </label>
     <label class="ehl-settings__row">
       <span class="ehl-settings__label">{{ t('settingMaxRequests') }}</span>
       <input class="ehl-settings__number" type="number" min="1" step="1" :value="settings.maxRequests" @change="setMaxRequests" />

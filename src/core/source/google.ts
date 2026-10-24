@@ -1,3 +1,4 @@
+import { whitespaceRun } from '../title/pattern'
 import type { PreviewResult, SearchOnPage } from './preview'
 
 /** Google pages its results ten at a time through `start`. */
@@ -80,12 +81,35 @@ export function googleResultsArea(root: ParentNode): Element | null {
 }
 
 /**
+ * The line Google prints under a title inside the link: the site's name and
+ * the breadcrumb (`pixiv https://www.pixiv.net › users`), or for a post the
+ * account, likes and age (`X · account · 7000+ likes · 3 months ago`). Read as
+ * the link's text outside the title, one text node at a time, since the parts
+ * sit in separate elements with no space between them.
+ */
+function siteLine(link: Element): string {
+  const parts: string[] = []
+  const walker = link.ownerDocument.createTreeWalker(link, NodeFilter.SHOW_TEXT)
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.parentElement?.closest('h3')) continue
+    parts.push(node.textContent ?? '')
+  }
+  return parts.join(' ').split(whitespaceRun).filter(Boolean).join(' ')
+}
+
+/**
  * The organic results on a Google search page, in page order. The link is
  * Google's own (`/goto?url=<token>` since 2026): the target is not in the page
- * at all — not in `href`, not in `ping` — but the token redirects to it when
- * opened, from any tab. The breadcrumb is the only readable trace of where it
- * goes, so it is both the byline and the source of the site icon.
+ * at all — not in `href`, not in `ping` — but the token redirects to it with a
+ * plain 302 on GET (HEAD answers 200 without moving), from any tab; the
+ * reading tab swaps each for its target (`isGoogleRedirect`). Google draws each site's icon itself as a `data:` image
+ * inside the link (observed 2026-10), which covers sites that keep no
+ * `/favicon.ico`; the breadcrumb's origin is the fallback.
  */
+export function isGoogleRedirect(href: string): boolean {
+  return new URL(href).pathname === '/goto'
+}
+
 export function readGoogleResults(root: ParentNode): PreviewResult[] {
   const results: PreviewResult[] = []
   for (const heading of root.querySelectorAll('#search a h3')) {
@@ -94,7 +118,16 @@ export function readGoogleResults(root: ParentNode): PreviewResult[] {
     const block = resultBlock(link)
     const title = (heading.textContent ?? '').trim()
     const cite = (block.querySelector('cite')?.textContent ?? '').trim()
-    results.push({ title, href: link.href, origin: citeOrigin(cite), byline: cite, snippet: snippetOf(block, title, cite) })
+    results.push({
+      title,
+      href: link.href,
+      origin: citeOrigin(cite),
+      icon: link.querySelector('img')?.getAttribute('src') || null,
+      byline: siteLine(link),
+      snippet: snippetOf(block, title, cite),
+      thumb: null,
+      works: [],
+    })
   }
   return results
 }

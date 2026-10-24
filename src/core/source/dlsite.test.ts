@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dlsitePageUrl, dlsiteResultState, dlsiteSearchOf, readDlsiteResults } from './dlsite'
+import { dlsiteHasNextPage, dlsitePageUrl, dlsiteResultState, dlsiteSearchOf, dlsiteThumb, readDlsiteResults } from './dlsite'
 
 const SEARCH = 'https://www.dlsite.com/maniax/fsr/=/keyword/%E4%BD%9C%E5%93%81%E4%B9%99/'
 
@@ -30,15 +30,21 @@ describe('readDlsiteResults', () => {
         title: '作品乙',
         href: 'https://www.dlsite.com/maniax/work/=/product_id/RJ01000001.html',
         origin: 'https://www.dlsite.com',
+        icon: null,
         byline: 'サークル甲 / 作家乙、作家丙',
         snippet: 'ボイス・ASMR · 1,100円 · RJ01000001',
+        thumb: 'https://img.dlsite.jp/resize/images2/work/doujin/RJ01001000/RJ01000001_img_main_240x240.jpg',
+        works: [],
       },
       {
         title: 'Work Beta',
         href: 'https://www.dlsite.com/maniax/work/=/product_id/RJ01000002.html',
         origin: 'https://www.dlsite.com',
+        icon: null,
         byline: 'Circle Alpha',
         snippet: 'ボイス・ASMR · 1,100円 · RJ01000002',
+        thumb: 'https://img.dlsite.jp/resize/images2/work/doujin/RJ01001000/RJ01000002_img_main_240x240.jpg',
+        works: [],
       },
     ])
   })
@@ -51,6 +57,26 @@ describe('dlsiteResultState', () => {
     expect(dlsiteResultState(page(''))).toBeNull()
     expect(dlsiteResultState(page(work('RJ01000001', '作品乙', 'サークル甲', [])))).toBe('results')
     expect(dlsiteResultState(page('<div class="work_not_found"></div>'))).toBe('none')
+  })
+
+  // A page past the last one is DLsite's 404 page, not a search that is
+  // still rendering; waiting it out would only spin.
+  it('reads the 404 page as missing', () => {
+    expect(dlsiteResultState(page('<div class="error_box"><p class="title_text">ページが見つかりませんでした</p></div>'))).toBe('missing')
+  })
+})
+
+describe('dlsiteHasNextPage', () => {
+  const pager = (items: string): Document => page(`<table class="global_pagination"><tr><td class="page_no">${items}</td></tr></table>`)
+
+  it('sees a page after the current one', () => {
+    expect(dlsiteHasNextPage(pager('<ul><li><a href="#">1</a></li><li><strong>2</strong></li><li><a href="#">3</a></li></ul>'))).toBe(true)
+  })
+
+  // One page of results leaves the pager empty; the last page has nothing after its number.
+  it('sees no page after a single page or the last one', () => {
+    expect(dlsiteHasNextPage(pager(' '))).toBe(false)
+    expect(dlsiteHasNextPage(pager('<ul><li><a href="#">1</a></li><li><strong>2</strong></li></ul>'))).toBe(false)
   })
 })
 
@@ -69,5 +95,45 @@ describe('dlsiteSearchOf / dlsitePageUrl', () => {
   it('reads nothing off pages that are not a floor search', () => {
     expect(dlsiteSearchOf(new URL('https://www.dlsite.com/maniax/work/=/product_id/RJ01000001.html'))).toBeNull()
     expect(dlsiteSearchOf(new URL('https://www.example.com/maniax/fsr/=/keyword/x/'))).toBeNull()
+  })
+})
+
+describe('dlsiteThumb', () => {
+  // The folder is the id rounded up to the next thousand, keeping the id's
+  // width; an id already on a thousand is its own folder.
+  it('files a doujin cover under the id rounded up to a thousand', () => {
+    expect(dlsiteThumb('RJ01000001')).toBe('https://img.dlsite.jp/resize/images2/work/doujin/RJ01001000/RJ01000001_img_main_240x240.jpg')
+    expect(dlsiteThumb('RJ286001')).toBe('https://img.dlsite.jp/resize/images2/work/doujin/RJ287000/RJ286001_img_main_240x240.jpg')
+    expect(dlsiteThumb('RJ01729000')).toBe('https://img.dlsite.jp/resize/images2/work/doujin/RJ01729000/RJ01729000_img_main_240x240.jpg')
+  })
+
+  // Books (single chapters, volumes) keep theirs under `books` the same way;
+  // a prefix without a known image folder gets none.
+  it('files a book cover under books and knows no other floor', () => {
+    expect(dlsiteThumb('BJ01000001')).toBe('https://img.dlsite.jp/resize/images2/work/books/BJ01001000/BJ01000001_img_main_240x240.jpg')
+    expect(dlsiteThumb('VJ01000001')).toBeNull()
+  })
+})
+
+describe('readDlsiteResults covers', () => {
+  const item = (thumb: string): Document =>
+    page(`<li data-list_item_product_id="BJ01000001"><dl><dt class="search_img work_thumb"><div class="work_thumb_inner"><picture><img src="${thumb}"></picture></div></dt>
+      <dd class="work_name"><a href="https://www.dlsite.com/books/work/=/product_id/BJ01000001.html" title="作品乙">作品乙</a></dd>
+      <dd class="maker_name"><span class="author omit"><a href="#">作家乙</a></span></dd></dl></li>`)
+
+  // Once the reader has confirmed their age the list shows the real cover,
+  // protocol-relative; that is what the card shows. A book chapter names an
+  // author and no circle.
+  it('takes the cover the page shows', () => {
+    const [result] = readDlsiteResults(item('//img.dlsite.jp/resize/images2/work/books/BJ01001000/BJ01000001_img_main_240x240.webp'))
+    expect(result.thumb).toBe('https://img.dlsite.jp/resize/images2/work/books/BJ01001000/BJ01000001_img_main_240x240.webp')
+    expect(result.byline).toBe('作家乙')
+  })
+
+  // Before that, the page shows a caution placeholder from its own host,
+  // which is not the cover; the id stands in.
+  it('falls back to the id when the page shows a placeholder', () => {
+    const [result] = readDlsiteResults(item('/modpub/images/web/home/caution_img_sam.gif'))
+    expect(result.thumb).toBe('https://img.dlsite.jp/resize/images2/work/books/BJ01001000/BJ01000001_img_main_240x240.jpg')
   })
 })

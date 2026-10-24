@@ -22,11 +22,13 @@ export interface Settings {
   maxRequests: number
   /** whether languages excluded in the account's EH settings still appear in the results */
   languages: LanguageScope
+  /** trace every preview round trip into the debug log (src/services/debugLog.ts) */
+  debug: boolean
 }
 
 // Romanized reads as one line on every locale, and the second line is what tells
 // two releases of one book apart when the work text is identical.
-const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: true, view: 'list', maxRequests: DEFAULT_MAX_REQUESTS, languages: 'account' }
+const INITIAL: Settings = { titleLanguage: 'romanized', showSubtitle: true, view: 'list', maxRequests: DEFAULT_MAX_REQUESTS, languages: 'account', debug: false }
 
 export const settings = reactive<Settings>({ ...INITIAL })
 
@@ -57,6 +59,7 @@ export async function loadSettings(): Promise<void> {
         if ('view' in parsed && isView(parsed.view)) settings.view = parsed.view
         if ('maxRequests' in parsed && isMaxRequests(parsed.maxRequests)) settings.maxRequests = parsed.maxRequests
         if ('languages' in parsed && isLanguageScope(parsed.languages)) settings.languages = parsed.languages
+        if ('debug' in parsed && typeof parsed.debug === 'boolean') settings.debug = parsed.debug
       }
     } catch {
       // unreadable payload: keep defaults, the next save overwrites it

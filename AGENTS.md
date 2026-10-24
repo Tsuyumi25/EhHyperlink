@@ -186,9 +186,10 @@ and commit messages:
   shows, how to reach its next page, and how to read its results
 - `src/services/preview.ts` — the preview round trip: the gallery page leaves
   a request in GM storage and opens the search in a background tab with the
-  request id in its fragment; that tab reads its results, writes them back, and
-  is closed by the gallery page. `previewSites.ts` ties each site's reader to
-  how its tab waits for results (rendered DOM, or pixiv's own JSON API)
+  request id in its fragment; that tab answers the id from the fragment alone
+  (a new tab may not yet see what its opener just stored), writes its results
+  back, and is closed by the gallery page. `previewSites.ts` ties each site's
+  reader to how its tab waits for results (rendered DOM, or pixiv's own JSON API)
 - `src/settings.ts`, `src/components/` — settings store, badges, lists,
   settings popup, source search popup
 - Title and relationship tests live in `src/core/corpus/` under the rules

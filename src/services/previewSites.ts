@@ -1,7 +1,8 @@
-import { dlsitePageUrl, dlsiteResultState, dlsiteSearchOf, readDlsiteResults } from '@/core/source/dlsite'
-import { googlePageUrl, googleResultsArea, googleSearchOf, readGoogleResults } from '@/core/source/google'
-import { pixivApiUrl, pixivPageUrl, pixivSearchOf, readPixivResults } from '@/core/source/pixiv'
+import { dlsiteHasNextPage, dlsitePageUrl, dlsiteResultState, dlsiteSearchOf, readDlsiteResults } from '@/core/source/dlsite'
+import { googlePageUrl, googleResultsArea, googleSearchOf, isGoogleRedirect, readGoogleResults } from '@/core/source/google'
+import { isPixivUserSearch, pixivApiUrl, pixivPageUrl, pixivSearchOf, pixivUserWorksUrl, readPixivResults, readPixivUserWorks } from '@/core/source/pixiv'
 import type { PreviewAnswer, SearchOnPage } from '@/core/source/preview'
+import { resolveRedirect } from '@/services/redirect'
 
 /** How long a background tab waits for its results to render. */
 const RENDER_TIMEOUT_MS = 8_000
@@ -47,6 +48,13 @@ const GOOGLE: PreviewSite = {
     // The area appears before its first result does; give the results the rest of the wait.
     await rendered(() => (document.querySelector('#search a h3') ? true : null))
     const results = readGoogleResults(document)
+    // The reader copies and opens the site itself, not Google's redirect to it;
+    // a link that does not resolve stays Google's, which still leads there.
+    await Promise.all(
+      results.filter((result) => isGoogleRedirect(result.href)).map(async (result) => {
+        result.href = (await resolveRedirect(result.href)) ?? result.href
+      }),
+    )
     return { status: results.length > 0 ? 'ok' : 'empty', results }
   },
 }
@@ -59,7 +67,9 @@ const DLSITE: PreviewSite = {
     const state = await rendered(() => dlsiteResultState(document))
     if (state === null) return { status: 'unreadable', results: [] }
     const results = state === 'results' ? readDlsiteResults(document) : []
-    return { status: results.length > 0 ? 'ok' : 'empty', results }
+    const answer: PreviewAnswer = { status: results.length > 0 ? 'ok' : 'empty', results }
+    if (!dlsiteHasNextPage(document)) answer.last = true
+    return answer
   },
 }
 
@@ -72,7 +82,22 @@ const PIXIV: PreviewSite = {
     if (!api) return { status: 'unreadable', results: [] }
     try {
       const response = await fetch(api, { credentials: 'include' })
-      return readPixivResults(await response.json(), url)
+      const answer = readPixivResults(await response.json(), url)
+      // A user search lists people; each row also shows their latest works,
+      // which tell two creators of the same name apart. One profile request per user.
+      if (!isPixivUserSearch(url)) return answer
+      await Promise.all(
+        answer.results.map(async (result) => {
+          const worksUrl = pixivUserWorksUrl(result.href)
+          if (!worksUrl) return
+          try {
+            result.works = readPixivUserWorks(await (await fetch(worksUrl, { credentials: 'include' })).json())
+          } catch {
+            // a user whose profile does not load keeps the row without works
+          }
+        }),
+      )
+      return answer
     } catch {
       return { status: 'unreadable', results: [] }
     }

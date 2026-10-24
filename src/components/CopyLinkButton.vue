@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { Check, Copy } from '@lucide/vue'
-import { t } from '@/i18n'
+import { t, type MessageKey } from '@/i18n'
 
-const props = defineProps<{ href: string }>()
+const props = withDefaults(defineProps<{ href: string; label?: MessageKey }>(), { label: 'copyLink' })
 
 /** How long the tick stays after a copy, long enough to be seen without waiting on it. */
 const COPIED_MS = 1500
@@ -28,8 +28,8 @@ onBeforeUnmount(() => clearTimeout(reset))
     type="button"
     class="ehl-copy"
     :class="{ 'ehl-copy--done': copied }"
-    :title="copied ? t('linkCopied') : t('copyLink')"
-    :aria-label="copied ? t('linkCopied') : t('copyLink')"
+    :title="copied ? t('linkCopied') : t(label)"
+    :aria-label="copied ? t('linkCopied') : t(label)"
     @click="copy"
   >
     <Check v-if="copied" :size="12" aria-hidden="true" />

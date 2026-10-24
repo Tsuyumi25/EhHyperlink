@@ -12,19 +12,21 @@ function page(...blocks: string[]): Document {
 
 const result = (title: string, cite: string, snippet: string, token: string): string => `
   <div data-hveid="x">
-    <div><a href="https://www.google.com/goto?url=${token}"><h3>${title}</h3><div><span>Site</span><cite>${cite}</cite></div></a></div>
+    <div><a href="https://www.google.com/goto?url=${token}"><h3>${title}</h3><div><span><img src="data:image/png;base64,${token}"></span><span>Site</span><cite>${cite}</cite></div></a></div>
     <div><span>${snippet}</span></div>
   </div>`
 
 describe('readGoogleResults', () => {
-  it('reads title, link, breadcrumb and snippet of each result in order', () => {
+  // The icon is the one Google drew inside the link; the byline is the site
+  // name and breadcrumb as Google prints them, joined from separate elements.
+  it('reads title, link, icon, site line and snippet of each result in order', () => {
     const doc = page(
       result('Circle Alpha - Creator Page', 'https://creator.example › creator', 'The creator page of Circle Alpha.', 'AAA'),
       result('作品乙 - Store', 'https://store.example › work › 1', '作品乙の販売ページ。', 'BBB'),
     )
     expect(readGoogleResults(doc)).toEqual([
-      { title: 'Circle Alpha - Creator Page', href: 'https://www.google.com/goto?url=AAA', origin: 'https://creator.example', byline: 'https://creator.example › creator', snippet: 'The creator page of Circle Alpha.' },
-      { title: '作品乙 - Store', href: 'https://www.google.com/goto?url=BBB', origin: 'https://store.example', byline: 'https://store.example › work › 1', snippet: '作品乙の販売ページ。' },
+      { title: 'Circle Alpha - Creator Page', href: 'https://www.google.com/goto?url=AAA', origin: 'https://creator.example', icon: 'data:image/png;base64,AAA', byline: 'Site https://creator.example › creator', snippet: 'The creator page of Circle Alpha.', thumb: null, works: [] },
+      { title: '作品乙 - Store', href: 'https://www.google.com/goto?url=BBB', origin: 'https://store.example', icon: 'data:image/png;base64,BBB', byline: 'Site https://store.example › work › 1', snippet: '作品乙の販売ページ。', thumb: null, works: [] },
     ])
   })
 

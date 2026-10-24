@@ -1,4 +1,4 @@
-import type { PreviewAnswer, PreviewResult, SearchOnPage } from './preview'
+import type { PreviewAnswer, PreviewResult, PreviewWork, SearchOnPage } from './preview'
 
 const ORIGIN = 'https://www.pixiv.net'
 
@@ -23,6 +23,11 @@ function pixivSearch(url: URL): PixivSearch | null {
   const nick = url.searchParams.get('nick')
   if (path === '/search/users' && nick) return { kind: 'users', word: nick, page: pageOf(url), url }
   return null
+}
+
+/** A user search, whose results are people rather than works. */
+export function isPixivUserSearch(url: URL): boolean {
+  return pixivSearch(url)?.kind === 'users'
 }
 
 export function pixivSearchOf(url: URL): SearchOnPage | null {
@@ -82,11 +87,14 @@ interface ArtworkJson {
   title?: string
   userName?: string
   createDate?: string
+  /** the square thumbnail on i.pximg.net */
+  url?: string
 }
 
 interface UserJson {
   user_id?: string
   user_name?: string
+  profile_img?: { main?: string }
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -109,7 +117,16 @@ export function readPixivResults(json: unknown, url: URL): PreviewAnswer {
     const users = Array.isArray(body.users) ? (body.users as UserJson[]) : []
     for (const user of users) {
       if (!user.user_id) continue
-      results.push({ title: user.user_name ?? user.user_id, href: `${ORIGIN}/users/${user.user_id}`, origin: ORIGIN, byline: '', snippet: '' })
+      results.push({
+        title: user.user_name ?? user.user_id,
+        href: `${ORIGIN}/users/${user.user_id}`,
+        origin: ORIGIN,
+        icon: null,
+        byline: '',
+        snippet: '',
+        thumb: user.profile_img?.main ?? null,
+        works: [],
+      })
     }
   } else {
     const data = record(body.illustManga).data
@@ -120,10 +137,44 @@ export function readPixivResults(json: unknown, url: URL): PreviewAnswer {
         title: artwork.title ?? artwork.id,
         href: `${ORIGIN}/artworks/${artwork.id}`,
         origin: ORIGIN,
+        icon: null,
         byline: artwork.userName ?? '',
         snippet: (artwork.createDate ?? '').slice(0, 10),
+        thumb: artwork.url ?? null,
+        works: [],
       })
     }
   }
   return { status: results.length > 0 ? 'ok' : 'empty', results }
+}
+
+/** How many of a creator's works a user row shows. */
+export const WORKS_PER_USER = 6
+
+/** The request for a user's profile summary, which lists their recent works with thumbnails. */
+export function pixivUserWorksUrl(userHref: string): string | null {
+  const id = new URL(userHref).pathname.split('/').at(-1)
+  return id ? `${ORIGIN}/ajax/user/${id}/profile/top?lang=ja` : null
+}
+
+/**
+ * A creator's latest works out of `/ajax/user/<id>/profile/top`: illustrations
+ * and manga sit in `body.illusts` and `body.manga`, each an object keyed by
+ * work id. Newest first by id, since the keys come in no promised order.
+ */
+export function readPixivUserWorks(json: unknown): PreviewWork[] {
+  const root = record(json)
+  if (root.error !== false) return []
+  const body = record(root.body)
+  const works: (ArtworkJson & { id: string; url: string })[] = []
+  for (const group of [body.illusts, body.manga]) {
+    for (const value of Object.values(record(group))) {
+      const work = record(value) as ArtworkJson
+      if (work.id && work.url) works.push(work as ArtworkJson & { id: string; url: string })
+    }
+  }
+  return works
+    .sort((a, b) => Number(b.id) - Number(a.id))
+    .slice(0, WORKS_PER_USER)
+    .map((work) => ({ href: `${ORIGIN}/artworks/${work.id}`, thumb: work.url, title: work.title ?? work.id }))
 }

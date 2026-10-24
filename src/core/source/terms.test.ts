@@ -61,6 +61,42 @@ describe('searchTerms', () => {
       { kind: 'artist', text: 'Circle Alpha' },
     ])
   })
+
+  // A quoted word splits the work text into runs; a run under three
+  // characters matches thousands of unrelated works and is not searched,
+  // while a two-character creator name still is.
+  it('skips work runs shorter than three characters but not short creators', () => {
+    expect(searchTerms(gallery('[作家] 作品甲「乙」作品丙丁', ''))).toEqual([
+      { kind: 'work', text: '作品甲' },
+      { kind: 'work', text: '作品丙丁' },
+      { kind: 'circle', text: '作家' },
+    ])
+  })
+
+  // An anthology's artists each lead to their own work, not this book: the
+  // circle and the work are searched, the artists are not.
+  it('drops artists from an anthology', () => {
+    expect(searchTerms(gallery('[Circle Alpha (Artist Beta)] Work Beta', '', ['other:anthology']))).toEqual([
+      { kind: 'work', text: 'Work Beta' },
+      { kind: 'circle', text: 'Circle Alpha' },
+    ])
+  })
+
+  // Three artists are still searched one by one; a fourth, counted from the
+  // title or from the artist tags, makes it a group book and drops them all.
+  it('drops artists past three, counted from the title or the tags', () => {
+    const three = ['artist:a', 'artist:b', 'artist:c']
+    expect(searchTerms(gallery('[Circle Alpha (Artist Beta)] Work Beta', '', three)).map((term) => term.kind)).toEqual(['work', 'circle', 'artist'])
+    expect(searchTerms(gallery('[Circle Alpha (Artist Beta)] Work Beta', '', [...three, 'artist:d'])).map((term) => term.kind)).toEqual(['work', 'circle'])
+    expect(searchTerms(gallery('[Circle Alpha (A) (B) (C) (D)] Work Beta', '')).map((term) => term.kind)).toEqual(['work', 'circle'])
+  })
+
+  // Several artists in one nested block are separate searches, and count
+  // one by one toward the limit.
+  it('splits comma-listed artists in one block', () => {
+    expect(searchTerms(gallery('[Circle Alpha (Artist Beta, Artist Gamma)] Work Beta', '')).filter((term) => term.kind === 'artist').map((term) => term.text)).toEqual(['Artist Beta', 'Artist Gamma'])
+    expect(searchTerms(gallery('', '[サークル甲 (作家甲、作家乙、作家丙、作家丁)] 作品乙')).map((term) => term.kind)).toEqual(['work', 'circle'])
+  })
 })
 
 describe('googleQuery', () => {

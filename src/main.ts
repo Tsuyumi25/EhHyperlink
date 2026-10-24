@@ -2,6 +2,8 @@ import { createApp } from 'vue'
 import App from '@/App.vue'
 import { loadSettings } from '@/settings'
 import { answerPreview } from '@/services/preview'
+import { isTraced, requestIdOf } from '@/core/source/preview'
+import { debugLog, describeError } from '@/services/debugLog'
 import { previewSiteFor } from '@/services/previewSites'
 
 /** `transparent` or an rgba() with zero alpha, as getComputedStyle reports unpainted backgrounds. */
@@ -34,7 +36,21 @@ async function mountGalleryPage(): Promise<void> {
   createApp(App).mount(container)
 }
 
+/**
+ * A tab opened for a traced request logs that the script ran at all, what URL
+ * it ended up on, and anything thrown on the page while it works: the first
+ * thing to know about a search that never answers.
+ */
+function traceTab(here: URL, siteId: string | null): void {
+  const id = requestIdOf(here)
+  if (id === null || !isTraced(here)) return
+  void debugLog(id, 'script started', `${here.href} readyState=${document.readyState} visibility=${document.visibilityState} site=${siteId ?? 'none matches this URL'}`)
+  window.addEventListener('error', (event) => void debugLog(id, 'page error', describeError(event.error ?? event.message)))
+  window.addEventListener('unhandledrejection', (event) => void debugLog(id, 'unhandled rejection', describeError(event.reason)))
+}
+
 // A search page of a previewed site only answers the gallery page's request, if it is one.
 const previewSite = previewSiteFor(new URL(location.href))
+traceTab(new URL(location.href), previewSite?.id ?? null)
 if (previewSite) await answerPreview(previewSite)
 else await mountGalleryPage()

@@ -1,19 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import { googleSearchOf, googleSearchUrl } from './google'
-import { PREVIEW_TTL_MS, requestFor, requestOf, withRequestId } from './preview'
+import { freshRequestIdOf, newRequestId, PREVIEW_TTL_MS, requestFor, withRequestId } from './preview'
 
 const NOW = 1_000_000
 const key = (query: string, page = 0): string => googleSearchOf(new URL(googleSearchUrl(query, page)))?.key as string
 
-describe('requestOf', () => {
-  // Two gallery tabs preview the same search at once: both requests share a
-  // key, and each background tab answers the one its fragment names, not
-  // whichever came last.
-  it('answers the request named in the fragment', () => {
-    const first = { id: 'a', key: key('作品乙'), at: NOW - 1000 }
-    const second = { id: 'b', key: key('作品乙'), at: NOW }
-    const opened = new URL(withRequestId(googleSearchUrl('作品乙'), 'a'))
-    expect(requestOf([first, second], opened, key('作品乙'), NOW)).toBe(first)
+describe('freshRequestIdOf', () => {
+  // A new tab may not see the request its opener just stored; the id in the
+  // fragment is answered on its own, carrying its time for the freshness check.
+  it('takes the id from the fragment while it is fresh', () => {
+    const opened = new URL(withRequestId(googleSearchUrl('作品乙'), newRequestId(NOW - 1000, 'x')))
+    expect(freshRequestIdOf(opened, NOW)).toBe(newRequestId(NOW - 1000, 'x'))
+  })
+
+  // A tab reopened from history long after keeps its fragment; nobody waits on it.
+  it('drops an expired id', () => {
+    const opened = new URL(withRequestId(googleSearchUrl('作品乙'), newRequestId(NOW - PREVIEW_TTL_MS - 1, 'x')))
+    expect(freshRequestIdOf(opened, NOW)).toBeNull()
+  })
+
+  it('gives nothing for a page without a fragment', () => {
+    expect(freshRequestIdOf(new URL(googleSearchUrl('作品乙')), NOW)).toBeNull()
   })
 
   // The fragment rides along a redirect to a country domain; the query the
@@ -22,21 +29,6 @@ describe('requestOf', () => {
     const opened = new URL(withRequestId(googleSearchUrl('作品乙', 1), 'a'))
     expect(googleSearchOf(opened)?.key).toBe(key('作品乙', 1))
     expect(opened.hash).toBe('#ehl-preview=a')
-  })
-
-  // A page that lost the fragment falls back to its search.
-  it('falls back to the search when the fragment is gone', () => {
-    const only = { id: 'a', key: key('作品乙'), at: NOW }
-    expect(requestOf([only], new URL(googleSearchUrl('作品乙')), key('作品乙'), NOW)).toBe(only)
-  })
-
-  // A named request that expired is not answered, and another fresh request
-  // for the same search does not stand in for it.
-  it('answers nothing when the named request expired', () => {
-    const stale = { id: 'a', key: key('作品乙'), at: NOW - PREVIEW_TTL_MS - 1 }
-    const fresh = { id: 'b', key: key('作品乙'), at: NOW }
-    const opened = new URL(withRequestId(googleSearchUrl('作品乙'), 'a'))
-    expect(requestOf([stale, fresh], opened, key('作品乙'), NOW)).toBeNull()
   })
 })
 

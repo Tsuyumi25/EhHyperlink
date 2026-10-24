@@ -1,22 +1,54 @@
 import { GM_addValueChangeListener, GM_openInTab, GM_removeValueChangeListener } from '$'
-import { isFresh, requestOf, withRequestId, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
-import { storageGet, storageRemove, storageSet } from '@/services/gmStorage'
+import { freshRequestIdOf, isFresh, isTraced, newRequestId, requestFor, requestIdOf, withDebugTrace, withRequestId, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
+import { debugLog, describeError } from '@/services/debugLog'
+import { settings } from '@/settings'
+import { storageGet, storageKeys, storageRemove, storageSet } from '@/services/gmStorage'
 import type { PreviewSite } from '@/services/previewSites'
 
-const REQUESTS_KEY = 'ehl_preview_requests_v1'
+/**
+ * One storage key per request. The panel starts all its searches at once, and
+ * a single shared list written read-modify-write loses every request but the
+ * last one to be written: the other tabs then find no request and never answer.
+ */
+const REQUEST_PREFIX = 'ehl_preview_request_'
+const requestKey = (id: string): string => `${REQUEST_PREFIX}${id}`
 const answerKey = (id: string): string => `ehl_preview_answer_${id}`
 
 /** How long the gallery page waits for the tab before closing it. */
 const ANSWER_TIMEOUT_MS = 20_000
 
-async function readRequests(): Promise<PreviewRequest[]> {
-  const raw = await storageGet(REQUESTS_KEY)
-  if (!raw) return []
+function parseRequest(raw: string | null): PreviewRequest | null {
+  if (!raw) return null
   try {
-    const parsed: unknown = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as PreviewRequest[]) : []
+    const parsed = JSON.parse(raw) as PreviewRequest
+    return typeof parsed.id === 'string' && typeof parsed.key === 'string' && typeof parsed.at === 'number' ? parsed : null
   } catch {
-    return []
+    return null
+  }
+}
+
+/** Every stored request; a page that lost its fragment has to look through them all. */
+async function readAllRequests(): Promise<PreviewRequest[]> {
+  const keys = (await storageKeys()).filter((key) => key.startsWith(REQUEST_PREFIX))
+  const requests = await Promise.all(keys.map(async (key) => parseRequest(await storageGet(key))))
+  return requests.filter((request): request is PreviewRequest => request !== null)
+}
+
+/**
+ * The request this page answers: the one its fragment names, taken from the
+ * fragment alone, or — for a page that lost it — the newest stored request
+ * for its search.
+ */
+async function requestIdFor(here: URL, key: string): Promise<string | null> {
+  const now = Date.now()
+  if (requestIdOf(here) !== null) return freshRequestIdOf(here, now)
+  return requestFor(await readAllRequests(), key, now)?.id ?? null
+}
+
+/** Requests left behind by a gallery page that closed before its tab answered. */
+async function dropExpiredRequests(now: number): Promise<void> {
+  for (const request of await readAllRequests()) {
+    if (!isFresh(request, now)) await storageRemove(requestKey(request.id))
   }
 }
 
@@ -29,12 +61,22 @@ function readAnswer(raw: string | null): PreviewAnswer | null {
   }
 }
 
+type Trace = (event: string, detail?: string) => void
+
+const untraced: Trace = () => {}
+
+/** Where a page writes its trace, if the reader turned the debug log on (gallery) or the request asks for one (a site's tab). */
+function traceFor(id: string, enabled: boolean): Trace {
+  return enabled ? (event, detail) => void debugLog(id, event, detail) : untraced
+}
+
 /**
  * Resolve with the tab's answer as soon as it is written: through the
  * manager's change event where it has one, by reading again every half second
- * where it does not.
+ * where it does not. With the debug log on, both run, so the log tells a
+ * change event that never came from an answer that was never written.
  */
-function waitForAnswer(id: string): Promise<PreviewAnswer | null> {
+function waitForAnswer(id: string, trace: Trace, closed: Promise<void>): Promise<PreviewAnswer | null> {
   const { promise, resolve } = Promise.withResolvers<PreviewAnswer | null>()
   let listener: string | number | undefined
   let poll: number | undefined
@@ -44,18 +86,34 @@ function waitForAnswer(id: string): Promise<PreviewAnswer | null> {
     if (listener !== undefined) GM_removeValueChangeListener(listener)
     resolve(answer)
   }
-  const timer = window.setTimeout(() => finish(null), ANSWER_TIMEOUT_MS)
-  if (typeof GM_addValueChangeListener === 'function') {
-    listener = GM_addValueChangeListener(answerKey(id), (_name, _old, value) => finish(readAnswer(value as string)))
-    return promise
-  }
-  poll = window.setInterval(() => {
-    void storageGet(answerKey(id)).then((raw) => {
-      const answer = readAnswer(raw)
-      if (answer) finish(answer)
+  const timer = window.setTimeout(() => {
+    trace('timeout', `${ANSWER_TIMEOUT_MS} ms without an answer`)
+    finish(null)
+  }, ANSWER_TIMEOUT_MS)
+  // A tab closed under it will never answer; waiting out the timeout would only spin.
+  void closed.then(() => finish({ status: 'closed', results: [] }))
+  const hasListener = typeof GM_addValueChangeListener === 'function'
+  if (hasListener) {
+    listener = GM_addValueChangeListener(answerKey(id), (_name, _old, value, remote) => {
+      trace('change event', `remote=${String(remote)} length=${typeof value === 'string' ? value.length : typeof value}`)
+      finish(readAnswer(value as string))
     })
-  }, 500)
+  }
+  if (!hasListener || trace !== untraced) {
+    poll = window.setInterval(() => {
+      void storageGet(answerKey(id)).then((raw) => {
+        const answer = readAnswer(raw)
+        if (!answer) return
+        trace('answer read by polling', hasListener ? 'the change event did not deliver it' : 'no change events in this manager')
+        finish(answer)
+      })
+    }, 500)
+  }
   return promise
+}
+
+function isLiveTab(tab: { closed: boolean }, result: PreviewAnswer | null): boolean {
+  return result !== null && !tab.closed
 }
 
 /**
@@ -70,30 +128,62 @@ export async function previewPage(site: PreviewSite, url: string): Promise<Previ
   // no GM API at all; say so instead of throwing.
   if (typeof GM_openInTab !== 'function') return { status: 'unavailable', results: [] }
   const key = site.searchOf(new URL(url))?.key ?? ''
-  const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
   const now = Date.now()
-  const requests = (await readRequests()).filter((request) => isFresh(request, now))
-  requests.push({ id, key, at: now })
-  await storageSet(REQUESTS_KEY, JSON.stringify(requests))
-  const answer = waitForAnswer(id)
-  const tab = GM_openInTab(withRequestId(url, id), { active: false, insert: true })
+  const id = newRequestId(now, Math.random().toString(36).slice(2, 8))
+  const trace = traceFor(id, settings.debug)
+  await dropExpiredRequests(now)
+  await storageSet(requestKey(id), JSON.stringify({ id, key, at: now } satisfies PreviewRequest))
+  trace('request stored', key)
+  const closedEarly = Promise.withResolvers<void>()
+  const answer = waitForAnswer(id, trace, closedEarly.promise)
+  const target = withRequestId(url, id)
+  const tab = GM_openInTab(trace === untraced ? target : withDebugTrace(target), { active: false, insert: true })
+  trace('tab opened', target)
+  let closing = false
+  tab.onclose = () => {
+    trace(closing ? 'tab closed' : 'tab closed by something else', `closed=${String(tab.closed)}`)
+    if (!closing) closedEarly.resolve()
+  }
   const result = await answer
-  tab.close()
+  trace(result ? 'answer received' : 'gave up', result ? `${result.status}, ${result.results.length} results` : '')
+  // A traced tab that never answered stays open, so its console can be read.
+  if (isLiveTab(tab, result) || trace === untraced) {
+    closing = true
+    tab.close()
+  }
+  await storageRemove(requestKey(id))
   await storageRemove(answerKey(id))
   return result
 }
 
 /**
  * On one of a site's search pages: answer the gallery page's request for this
- * search, if it made one. A search the reader runs on their own is left alone
- * after one storage read.
+ * search, if it made one. A search the reader runs on their own carries no
+ * fragment, so it costs one listing of the stored keys.
  */
 export async function answerPreview(site: PreviewSite): Promise<void> {
   const here = new URL(location.href)
+  const trace = traceFor(requestIdOf(here) ?? 'no fragment', isTraced(here))
   const asked = site.searchOf(here)
-  if (!asked) return
-  const request = requestOf(await readRequests(), here, asked.key, Date.now())
-  if (!request) return
-  const answer: PreviewAnswer = asked.blocked ? { status: 'blocked', results: [] } : await site.read(here)
-  await storageSet(answerKey(request.id), JSON.stringify(answer))
+  if (!asked) {
+    trace('not a search page', here.href)
+    return
+  }
+  const id = await requestIdFor(here, asked.key)
+  if (id === null) {
+    trace('no request to answer', `key=${asked.key}`)
+    return
+  }
+  trace('reading', `${site.id}${asked.blocked ? ' (blocked page)' : ''}`)
+  let answer: PreviewAnswer
+  try {
+    answer = asked.blocked ? { status: 'blocked', results: [] } : await site.read(here)
+  } catch (error) {
+    // A reader that throws would leave the gallery page spinning until it gives up.
+    trace('read failed', describeError(error))
+    answer = { status: 'unreadable', results: [] }
+  }
+  trace('read done', `${answer.status}, ${answer.results.length} results`)
+  await storageSet(answerKey(id), JSON.stringify(answer))
+  trace('answer written', `${answerKey(id)}`)
 }

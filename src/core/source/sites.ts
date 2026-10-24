@@ -46,7 +46,9 @@ export const SEARCH_SITES: readonly SearchSite[] = [
   {
     id: 'dlsite',
     name: 'DLsite',
-    url: (term) => `https://www.dlsite.com/maniax/fsr/=/keyword/${encode(term.text)}/`,
+    // A space in the keyword path must be `+`: DLsite answers `%20` there with 403
+    // (checked 2026-10), and reads `+` as the space its own search form sends.
+    url: (term) => `https://www.dlsite.com/maniax/fsr/=/keyword/${encode(term.text).replaceAll('%20', '+')}/`,
   },
   {
     id: 'fanza',

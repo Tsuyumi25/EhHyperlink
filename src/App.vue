@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import GroupList from '@/components/GroupList.vue'
 import LanguageBadge from '@/components/LanguageBadge.vue'
 import SettingsPopup from '@/components/SettingsPopup.vue'
-import SourceSearch from '@/components/SourceSearch.vue'
-import { Activity, CircleSlash2, ClipboardList, RefreshCw, Settings } from '@lucide/vue'
+import SearchPanel from '@/components/SearchPanel.vue'
+import { Activity, CircleSlash2, Globe, RefreshCw, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY, type MessageKey } from '@/i18n'
 import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
 import { findEditions, type EditionGroup, type JumpResult, type SearchProgress, type SearchRequest } from '@/core/pipeline'
@@ -143,6 +143,22 @@ const dataAge = computed(() => {
 function toggle(id: string): void {
   pinned.value = pinned.value === id ? null : id
 }
+
+const searchStarted = ref(false)
+/** The search view stands in for `.gm`, so it has its own open state apart from the bar's popovers. */
+const searchOpen = ref(false)
+
+function toggleSearch(): void {
+  searchStarted.value = true
+  searchOpen.value = !searchOpen.value
+}
+
+// `#ehl-app` sits right before `.gm` in the same column (main.ts); while the
+// search view is open it shows there instead of the gallery box.
+watch(searchOpen, (shown) => {
+  const box = document.querySelector<HTMLElement>('#ehl-app + .gm')
+  if (box) box.style.display = shown ? 'none' : ''
+})
 </script>
 
 <template>
@@ -199,11 +215,10 @@ function toggle(id: string): void {
     </div>
     <div class="ehl-tabs ehl-tabs--end">
       <div v-if="source" class="ehl-unit">
-        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': pinned === 'source', 'ehl-tab--pinned': pinned === 'source' }" :title="t('sourceSearchTitle')" @click="toggle('source')">
-          <ClipboardList :size="14" aria-hidden="true" />
+        <button type="button" class="ehl-icon ehl-search-button" :class="{ 'ehl-icon--active': searchOpen, 'ehl-tab--pinned': searchOpen }" :title="t('searchTitle')" @click="toggleSearch()">
+          <Globe :size="14" aria-hidden="true" />
+          <span>{{ t('search') }}</span>
         </button>
-        <!-- v-show: terms the reader edited and previews already fetched survive closing it -->
-        <SourceSearch v-show="pinned === 'source'" :source="source" @close="pinned = null" />
       </div>
       <div class="ehl-unit">
         <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': open === 'settings', 'ehl-tab--pinned': pinned === 'settings' }" :title="t('settings')" @click="toggle('settings')">
@@ -213,6 +228,9 @@ function toggle(id: string): void {
       </div>
     </div>
   </div>
+  <!-- Mounted on the first press, which starts every search; v-show after that,
+       so closing and reopening keeps the results instead of searching again. -->
+  <SearchPanel v-if="searchStarted && source" v-show="searchOpen" :source="source" @close="searchOpen = false" />
 </template>
 
 <style>
@@ -777,5 +795,10 @@ function toggle(id: string): void {
   border: 1px solid currentColor;
   border-radius: 3px;
   opacity: 0.85;
+}
+/* The one bar button that carries a word as well as its icon. */
+.ehl-search-button {
+  gap: 4px;
+  font-weight: 700;
 }
 </style>

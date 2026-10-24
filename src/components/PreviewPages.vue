@@ -156,16 +156,21 @@ previewFirstPage()
 .ehl-pages__results > li:hover > .ehl-copy {
   opacity: 0.8;
 }
-/* A result laid out as a row ends in a square copy button as tall as the row.
-   Pinned by top and bottom: an absolutely positioned box with both gets a
-   definite height for aspect-ratio to turn into a width, which a stretched flex
-   item does not (it stayed 14px wide). A card keeps the gallery's corner
-   button over its cover. */
+/* Above the result's own content: the faded byline and snippet (opacity under
+   1) and the cover each paint as a layer of their own after the button. */
+.ehl-pages__results > li > .ehl-copy {
+  z-index: 1;
+}
+/* A result laid out as a row ends in a square copy button inset from the
+   row's edges, as tall as the row allows. Pinned by top and bottom: an
+   absolutely positioned box with both gets a definite height for aspect-ratio
+   to turn into a width, which a stretched flex item does not (it stayed 14px
+   wide). A card keeps the gallery's corner button over its cover. */
 .ehl-pages__results--list > li > .ehl-copy,
 .ehl-pages__results--rows > li > .ehl-copy {
-  top: 0;
-  right: 0;
-  bottom: 0;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
   width: auto;
   height: auto;
   aspect-ratio: 1;
@@ -206,7 +211,7 @@ previewFirstPage()
 .ehl-pages__results--rows .ehl-pages__thumb {
   flex: 0 0 48px;
 }
-.ehl-pages__results--rows .ehl-pages__thumb .ehl-thumb {
+.ehl-pages__results--rows .ehl-pages__thumb .ehl-result-thumb {
   border-radius: 50%;
 }
 .ehl-pages__results--rows .ehl-pages__text {

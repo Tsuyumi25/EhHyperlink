@@ -46,12 +46,7 @@ export default defineConfig({
         // `self` for Google's result redirects, resolved on whichever country
         // domain the search landed on (src/services/redirect.ts).
         connect: ['i.pximg.net', 'self'],
-        name: {
-          '': 'EH Hyperlink',
-          'zh-TW': 'EH 語言版本跳轉',
-          'zh-CN': 'EH 语言版本跳转',
-          ja: 'EH 言語版ジャンプ',
-        },
+        name: 'EhHyperlink',
         description: {
           '': 'Jump to other language editions of the current E-Hentai / ExHentai gallery, matched by structured title analysis',
           'zh-TW': '在 E-Hentai / ExHentai 畫廊頁一鍵跳轉到其他語言版本，以標題結構分析比對',

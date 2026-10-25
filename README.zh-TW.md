@@ -1,6 +1,6 @@
 # EhHyperlink
 
-[English](README.md)
+[English](README.md) | [Sleazy Fork](https://sleazyfork.org/zh-TW/scripts/602046-ehhyperlink)
 
 受 [TranslatedJump](https://github.com/EhTagTranslation/UserScripts/tree/master/TranslatedJump) 啟發的 E-Hentai / ExHentai 畫廊關聯腳本：除了其他語言版本，也找同系列、原刊雜誌與收錄作品，並用 Google、DuckDuckGo、DLsite、pixiv 找來源
 
@@ -23,8 +23,8 @@
 
 （EhHyperlink 直接請求 Extended 模式的搜尋列表來取得畫廊資料，這會把網站的顯示模式切成 Extended；Eh View Refined 會在網站維持 Extended 的同時，照你選的排版顯示。）
 
-- [ ] Sleazy Fork
-- [ ] GitHub Releases
+- [x] [Sleazy Fork](https://sleazyfork.org/zh-TW/scripts/602046-ehhyperlink)
+- [x] [GitHub Releases](https://github.com/Tsuyumi25/EhHyperlink/releases)
 
 ## 開發
 

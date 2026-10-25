@@ -1,6 +1,6 @@
 # EhHyperlink
 
-[繁體中文](README.zh-TW.md)
+[繁體中文](README.zh-TW.md) | [Sleazy Fork](https://sleazyfork.org/zh-TW/scripts/602046-ehhyperlink)
 
 Inspired by [TranslatedJump](https://github.com/EhTagTranslation/UserScripts/tree/master/TranslatedJump): besides other language editions, also finds the series, source magazine and chapters of an E-Hentai / ExHentai gallery, and searches Google, DuckDuckGo, DLsite and pixiv for its source
 
@@ -23,8 +23,8 @@ Requires [Tampermonkey](https://www.tampermonkey.net/) or a compatible userscrip
 
 (EhHyperlink reads gallery data from search lists requested in Extended mode, which switches the site to Extended; Eh View Refined keeps showing your chosen layout while the site stays in Extended.)
 
-- [ ] Sleazy Fork
-- [ ] GitHub Releases
+- [x] [Sleazy Fork](https://sleazyfork.org/zh-TW/scripts/602046-ehhyperlink)
+- [x] [GitHub Releases](https://github.com/Tsuyumi25/EhHyperlink/releases)
 
 ## Development
 

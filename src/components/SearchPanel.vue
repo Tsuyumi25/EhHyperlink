@@ -15,7 +15,7 @@ import SiteIcon from './SiteIcon.vue'
 const props = defineProps<{ source: SourceGallery }>()
 const emit = defineEmits<{ close: [] }>()
 
-const SITE_NAME: Record<RecipeSiteId, string> = { google: 'Google', googleJp: 'Google .jp', duckduckgo: 'DuckDuckGo', dlsite: 'DLsite', pixiv: 'pixiv' }
+const SITE_NAME: Record<RecipeSiteId, string> = { google: 'Google', googleJp: 'Google .jp', duckduckgo: 'DuckDuckGo', dlsite: 'DLsite', pixiv: 'Pixiv' }
 const KIND_LABEL: Record<RecipeSearch['kind'], MessageKey> = {
   title: 'termTitle',
   work: 'termWork',

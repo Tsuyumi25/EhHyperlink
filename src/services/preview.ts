@@ -1,6 +1,6 @@
 import { GM_addValueChangeListener, GM_openInTab, GM_removeValueChangeListener } from '$'
 import { freshRequestIdOf, isFresh, isTraced, newRequestId, requestFor, requestIdOf, withDebugTrace, withRequestId, withWebLinksOnly, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
-import { debugLog, describeError } from '@/services/debugLog'
+import { debugLog, describeError, untraced, type Trace } from '@/services/debugLog'
 import { settings } from '@/settings'
 import { storageGet, storageKeys, storageRemove, storageSet } from '@/services/gmStorage'
 import type { PreviewSite } from '@/services/previewSites'
@@ -60,10 +60,6 @@ function readAnswer(raw: string | null): PreviewAnswer | null {
     return null
   }
 }
-
-type Trace = (event: string, detail?: string) => void
-
-const untraced: Trace = () => {}
 
 /** Where a page writes its trace, if the reader turned the debug log on (gallery) or the request asks for one (a site's tab). */
 function traceFor(id: string, enabled: boolean): Trace {
@@ -177,7 +173,7 @@ export async function answerPreview(site: PreviewSite): Promise<void> {
   trace('reading', `${site.id}${asked.blocked ? ' (blocked page)' : ''}`)
   let answer: PreviewAnswer
   try {
-    answer = asked.blocked ? { status: 'blocked', results: [] } : await site.read(here)
+    answer = asked.blocked ? { status: 'blocked', results: [] } : await site.read(here, trace)
   } catch (error) {
     // A reader that throws would leave the gallery page spinning until it gives up.
     trace('read failed', describeError(error))

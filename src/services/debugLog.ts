@@ -56,6 +56,11 @@ export async function debugLog(id: string, event: string, detail = ''): Promise<
   await pruneOnce(at)
 }
 
+/** One page's writer for one request's entries; `untraced` when the debug log is off. */
+export type Trace = (event: string, detail?: string) => void
+
+export const untraced: Trace = () => {}
+
 function parseEntry(raw: string | null): DebugEntry | null {
   if (!raw) return null
   try {

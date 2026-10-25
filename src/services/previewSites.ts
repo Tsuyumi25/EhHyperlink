@@ -3,6 +3,7 @@ import { dlsiteHasNextPage, dlsitePageUrl, dlsiteResultState, dlsiteSearchOf, re
 import { googlePageUrl, googleResultsComplete, googleSearchOf, isGoogleRedirect, readGoogleResults } from '@/core/source/google'
 import { isPixivUserSearch, pixivApiUrl, pixivPageUrl, pixivSearchOf, pixivUserWorksUrl, readPixivResults, readPixivUserWorks } from '@/core/source/pixiv'
 import type { PreviewAnswer, SearchOnPage } from '@/core/source/preview'
+import type { Trace } from '@/services/debugLog'
 import { resolveRedirect } from '@/services/redirect'
 
 /** How long a background tab waits for its results to render. */
@@ -18,8 +19,8 @@ export interface PreviewSite {
   searchOf: (url: URL) => SearchOnPage | null
   /** page `page` (0-based) of the search at `url` */
   pageUrl: (url: string, page: number) => string
-  /** runs in the site's tab, signed in as the reader */
-  read: (url: URL) => Promise<PreviewAnswer>
+  /** runs in the site's tab, signed in as the reader; `trace` writes to the debug log */
+  read: (url: URL, trace: Trace) => Promise<PreviewAnswer>
 }
 
 async function pause(ms: number): Promise<void> {
@@ -43,7 +44,7 @@ const GOOGLE: PreviewSite = {
   id: 'google',
   searchOf: googleSearchOf,
   pageUrl: googlePageUrl,
-  async read() {
+  async read(_url, trace) {
     const complete = await rendered(() => googleResultsComplete(document))
     if (!complete) return { status: 'unreadable', results: [] }
     const results = readGoogleResults(document)
@@ -51,7 +52,7 @@ const GOOGLE: PreviewSite = {
     // a link that does not resolve stays Google's, which still leads there.
     await Promise.all(
       results.filter((result) => isGoogleRedirect(result.href)).map(async (result) => {
-        result.href = (await resolveRedirect(result.href)) ?? result.href
+        result.href = (await resolveRedirect(result.href, trace)) ?? result.href
       }),
     )
     return { status: results.length > 0 ? 'ok' : 'empty', results }

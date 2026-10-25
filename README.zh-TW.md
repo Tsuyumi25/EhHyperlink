@@ -5,6 +5,8 @@
 受 [TranslatedJump](https://github.com/EhTagTranslation/UserScripts/tree/master/TranslatedJump) 啟發的 E-Hentai / ExHentai 畫廊關聯腳本：除了其他語言版本，也找同系列、原刊雜誌與收錄作品，並用 Google、DuckDuckGo、DLsite、pixiv 找來源
 
 ## 截圖
+<img width="3196" height="1147" alt="Image" src="https://github.com/user-attachments/assets/4bcc7194-0197-491a-8e37-2a7600160c6c" />
+<img width="3044" height="1366" alt="Image" src="https://github.com/user-attachments/assets/d29c4c51-a27b-452a-82f0-8c7739c62bb0" />
 
 ## 功能
 

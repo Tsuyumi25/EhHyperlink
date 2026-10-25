@@ -1,6 +1,6 @@
 import { duckDuckGoNextForm, duckDuckGoPageOf, duckDuckGoPageUrl, duckDuckGoSearchOf, isDuckDuckGoResultPage, readDuckDuckGoResults } from '@/core/source/duckduckgo'
 import { dlsiteHasNextPage, dlsitePageUrl, dlsiteResultState, dlsiteSearchOf, readDlsiteResults } from '@/core/source/dlsite'
-import { googlePageUrl, googleResultsArea, googleSearchOf, isGoogleRedirect, readGoogleResults } from '@/core/source/google'
+import { googlePageUrl, googleResultsComplete, googleSearchOf, isGoogleRedirect, readGoogleResults } from '@/core/source/google'
 import { isPixivUserSearch, pixivApiUrl, pixivPageUrl, pixivSearchOf, pixivUserWorksUrl, readPixivResults, readPixivUserWorks } from '@/core/source/pixiv'
 import type { PreviewAnswer, SearchOnPage } from '@/core/source/preview'
 import { resolveRedirect } from '@/services/redirect'
@@ -44,10 +44,8 @@ const GOOGLE: PreviewSite = {
   searchOf: googleSearchOf,
   pageUrl: googlePageUrl,
   async read() {
-    const area = await rendered(() => googleResultsArea(document))
-    if (!area) return { status: 'unreadable', results: [] }
-    // The area appears before its first result does; give the results the rest of the wait.
-    await rendered(() => (document.querySelector('#search a h3') ? true : null))
+    const complete = await rendered(() => googleResultsComplete(document))
+    if (!complete) return { status: 'unreadable', results: [] }
     const results = readGoogleResults(document)
     // The reader copies and opens the site itself, not Google's redirect to it;
     // a link that does not resolve stays Google's, which still leads there.

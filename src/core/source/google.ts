@@ -75,9 +75,17 @@ export function citeOrigin(cite: string): string | null {
   }
 }
 
-/** Whether the page holds the results area at all, results or none; null until it renders. */
-export function googleResultsArea(root: ParentNode): Element | null {
-  return root.querySelector('#search')
+/**
+ * Whether the results area has finished arriving, results or none; null until
+ * it has. Google renders every organic result into `#search` on the server,
+ * and `#botstuff` (the "did not match any documents" card on an empty search,
+ * related searches and the pager otherwise) follows it in the document
+ * (observed 2026-10: all `<h3>`s of a results page come before `#botstuff`).
+ * Waiting for `#search` alone cannot tell an empty search from one still
+ * loading: on an empty search it is an empty `<div>`.
+ */
+export function googleResultsComplete(root: ParentNode): Element | null {
+  return root.querySelector('#botstuff')
 }
 
 /**

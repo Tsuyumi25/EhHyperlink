@@ -35,6 +35,12 @@ async function mountGalleryPage(): Promise<void> {
   container.style.setProperty('--ehl-bg', opaqueBackground(host))
   container.style.setProperty('--ehl-border', getComputedStyle(host).borderTopColor)
   host.before(container)
+  // `.gm`'s width comes from g.css (content-box 1200 / 960 / 720 by breakpoint)
+  // and whatever user styles or other scripts lay over it; copying the numbers
+  // left the bar wider than the box in Chrome, so follow its painted width.
+  new ResizeObserver(([entry]) => {
+    container.style.width = `${entry.borderBoxSize[0].inlineSize}px`
+  }).observe(host, { box: 'border-box' })
   createApp(App).mount(container)
   // Fetched ahead of the first cover preview, which is where tag names show.
   watch(locale, (current) => void prepareTagNames(current), { immediate: true })

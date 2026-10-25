@@ -242,27 +242,15 @@ watch(searchOpen, (shown) => {
 </template>
 
 <style>
-/* Same column as `.gm` (g.css: min-width 720, max-width 1200, margin auto; narrower
-   at the two breakpoints) so the bar lines up with the box below. `.gm`'s own
-   top margin moves up here so the bar touches the box. */
+/* `.gm` is centred by `margin: auto` in g.css; `main.ts` gives the bar the box's
+   painted width, so the same centring lines the bar up with the box below.
+   `.gm`'s own top margin moves up here so the bar touches the box. */
 #ehl-app {
-  min-width: 720px;
-  max-width: 1200px;
   margin: 10px auto 0;
   box-sizing: border-box;
 }
 #ehl-app + .gm {
   margin-top: 0;
-}
-@media screen and (max-width: 1230px) {
-  #ehl-app {
-    max-width: 960px;
-  }
-}
-@media screen and (max-width: 990px) {
-  #ehl-app {
-    max-width: 720px;
-  }
 }
 /* Positioned so the popovers below anchor on the whole column: the result lists
    centre on it, i.e. on the page, and each side group's panel keeps to its edge.

@@ -166,8 +166,9 @@ and commit messages:
   host-page quirks, corpus numbers and corpus case expectations count as WHY.
 - Commit messages: Traditional Chinese, `type(scope): effect`. The subject
   states the effect, not the action; a body only for a real WHY.
-- User-facing strings: through `src/i18n.ts` (en / zh / ja). A new key goes
-  to all three.
+- User-facing strings: through `t()` in `src/i18n.ts`, one file per locale in
+  `src/locales/` (en / zh-TW / zh-CN / ja / ko). A new key goes to all five;
+  `satisfies Record<Locale, …>` fails the type check when one is missing.
 
 ## Architecture
 

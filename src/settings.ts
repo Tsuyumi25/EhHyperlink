@@ -2,6 +2,8 @@ import { reactive, watch } from 'vue'
 import { storageGet, storageSet } from '@/services/gmStorage'
 import { DEFAULT_MAX_REQUESTS } from '@/core/pipeline'
 import type { LanguageScope } from '@/core/eh/ehSearch'
+import { isLocaleChoice, resolveLocale, type LocaleChoice } from '@/core/locale'
+import { setLocale } from '@/i18n'
 
 const STORAGE_KEY = 'ehl_settings_v1'
 
@@ -10,6 +12,8 @@ export const VIEWS = ['list', 'covers'] as const
 export type View = (typeof VIEWS)[number]
 
 export interface Settings {
+  /** the interface language, or `auto` for the browser's */
+  locale: LocaleChoice
   view: View
   /** searches one gallery page may send */
   maxRequests: number
@@ -19,7 +23,7 @@ export interface Settings {
   debug: boolean
 }
 
-const INITIAL: Settings = { view: 'list', maxRequests: DEFAULT_MAX_REQUESTS, languages: 'account', debug: false }
+const INITIAL: Settings = { locale: 'auto', view: 'list', maxRequests: DEFAULT_MAX_REQUESTS, languages: 'account', debug: false }
 
 export const settings = reactive<Settings>({ ...INITIAL })
 
@@ -41,6 +45,7 @@ export async function loadSettings(): Promise<void> {
     try {
       const parsed: unknown = JSON.parse(raw)
       if (typeof parsed === 'object' && parsed !== null) {
+        if ('locale' in parsed && isLocaleChoice(parsed.locale)) settings.locale = parsed.locale
         if ('view' in parsed && isView(parsed.view)) settings.view = parsed.view
         if ('maxRequests' in parsed && isMaxRequests(parsed.maxRequests)) settings.maxRequests = parsed.maxRequests
         if ('languages' in parsed && isLanguageScope(parsed.languages)) settings.languages = parsed.languages
@@ -50,5 +55,6 @@ export async function loadSettings(): Promise<void> {
       // unreadable payload: keep defaults, the next save overwrites it
     }
   }
+  watch(() => settings.locale, (choice) => setLocale(resolveLocale(choice, navigator.languages)), { immediate: true })
   watch(settings, (current) => void storageSet(STORAGE_KEY, JSON.stringify(current)), { deep: true })
 }

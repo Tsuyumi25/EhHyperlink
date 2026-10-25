@@ -6,6 +6,7 @@ import SettingsPopup from '@/components/SettingsPopup.vue'
 import SearchPanel from '@/components/SearchPanel.vue'
 import { Activity, CircleSlash2, Globe, RefreshCw, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY, type MessageKey } from '@/i18n'
+import type { Locale } from '@/core/locale'
 import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
 import { findEditions, type EditionGroup, type JumpResult, type SearchProgress, type SearchRequest } from '@/core/pipeline'
 import type { FailureKind } from '@/core/eh/request'
@@ -30,7 +31,7 @@ async function run(force: boolean): Promise<void> {
   state.value = 'searching'
   progress.value = null
   try {
-    const found = await findEditions(gallery, location.origin, LANGUAGE_PRIORITY[locale], {
+    const found = await findEditions(gallery, location.origin, LANGUAGE_PRIORITY[locale.value], {
       force,
       onProgress: (next) => (progress.value = next),
       onResult: (next) => (result.value = next),
@@ -90,7 +91,7 @@ const badges = computed<Badge[]>(() => {
   if (!result.value) return []
   const list: Badge[] = []
   if (result.value.editions.length > 0) {
-    list.push({ id: 'editions', label: result.value.editions.map((group) => group.language.name[locale]).join(' · '), title: t('editionsTitle'), groups: result.value.editions })
+    list.push({ id: 'editions', label: result.value.editions.map((group) => group.language.name[locale.value]).join(' · '), title: t('editionsTitle'), groups: result.value.editions })
   }
   if (result.value.series.length > 0) list.push({ id: 'series', label: t('series'), title: t('seriesTitle'), groups: result.value.series })
   if (result.value.related.length > 0) {
@@ -128,11 +129,14 @@ const status = computed(() => {
   return hasResults.value ? null : t('notFound')
 })
 
+/** Day-month order for English rather than the US month-day; the other locales are BCP 47 tags as they are. */
+const DATE_LOCALE: Record<Locale, string> = { en: 'en-GB', 'zh-TW': 'zh-TW', 'zh-CN': 'zh-CN', ja: 'ja-JP', ko: 'ko-KR' }
+
 /** How old the oldest response in this result is, in the reader's locale. */
 const dataAge = computed(() => {
   const at = result.value?.dataAt
   if (at === undefined) return ''
-  return new Date(at).toLocaleString(locale === 'zh' ? 'zh-TW' : locale === 'ja' ? 'ja-JP' : 'en-GB', {
+  return new Date(at).toLocaleString(DATE_LOCALE[locale.value], {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',

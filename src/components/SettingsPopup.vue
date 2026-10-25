@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { CircleQuestionMark, Minus, Plus } from '@lucide/vue'
+import { CircleQuestionMark, Languages, Minus, Plus } from '@lucide/vue'
+import type { LocaleChoice } from '@/core/locale'
 import { t, type MessageKey } from '@/i18n'
 import { isMaxRequests, settings, VIEWS, type View } from '@/settings'
 
@@ -8,6 +9,15 @@ const VIEW_KEY: Record<View, MessageKey> = {
   list: 'viewList',
   covers: 'viewCovers',
 }
+
+/** Each language named in itself: a reader stuck in one they cannot read still finds their own. */
+const LOCALE_OPTIONS: { value: LocaleChoice; label: string }[] = [
+  { value: 'zh-TW', label: '繁體中文' },
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'en', label: 'English' },
+  { value: 'ja', label: '日本語' },
+  { value: 'ko', label: '한국어' },
+]
 
 /** The Paging Enlargement note, shown only when asked for: most readers never need it. */
 const perkHelpOpen = ref(false)
@@ -20,6 +30,13 @@ function stepMaxRequests(by: number): void {
 
 <template>
   <div class="ehl-settings" translate="no">
+    <label class="ehl-settings__row ehl-settings__language">
+      <span class="ehl-settings__label"><Languages :size="12" aria-hidden="true" /> {{ t('settingLanguage') }}</span>
+      <select v-model="settings.locale" class="ehl-settings__select">
+        <option value="auto">{{ t('settingLanguageAuto') }}</option>
+        <option v-for="option in LOCALE_OPTIONS" :key="option.value" :value="option.value" :lang="option.value">{{ option.label }}</option>
+      </select>
+    </label>
     <section class="ehl-settings__group">
       <h3 class="ehl-settings__heading">{{ t('settingGroupRelated') }}</h3>
       <div class="ehl-settings__row">
@@ -263,6 +280,27 @@ function stepMaxRequests(by: number): void {
 .ehl-settings__help:hover,
 .ehl-settings__help--open {
   opacity: 1;
+}
+.ehl-settings__language {
+  padding-top: 6px;
+}
+.ehl-settings__language .ehl-settings__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* The host page draws selects with its own border and background; this one
+   follows the popup's colours like the stepper beside it. */
+.ehl-settings__select {
+  height: 22px;
+  margin: 0;
+  padding: 0 4px;
+  font: inherit;
+  color: inherit;
+  background: var(--ehl-bg, #fff);
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
 }
 .ehl-settings__note {
   margin: 2px 0 4px;

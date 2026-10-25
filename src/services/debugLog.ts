@@ -5,7 +5,8 @@ import { storageGet, storageKeys, storageRemove, storageSet } from '@/services/g
  * answer. The background tab is closed and its console gone by the time
  * anyone looks, so both sides write here instead. One key per entry: tabs
  * write at once, and a shared list written read-modify-write keeps only the
- * last writer's entries. The entries can also be read in the userscript
+ * last writer's entries; each page drops the ones older than a day the first
+ * time it writes. The entries can also be read in the userscript
  * manager's own value viewer, which does not depend on the change events the
  * round trip itself relies on.
  */
@@ -21,10 +22,38 @@ export interface DebugEntry {
   detail: string
 }
 
+async function logKeys(): Promise<string[]> {
+  return (await storageKeys()).filter((key) => key.startsWith(LOG_PREFIX))
+}
+
+/** How long an entry stays: long enough to read after a failed search, short enough not to pile up. */
+const KEEP_MS = 24 * 60 * 60 * 1000
+
+/** When a log key was written: the key is `ehl_log_<ms>_<salt>`. NaN for a key not written that way. */
+export function logKeyTime(key: string): number {
+  return Number(key.slice(LOG_PREFIX.length).split('_')[0])
+}
+
+function isExpiredLogKey(key: string, now: number): boolean {
+  return !(now - logKeyTime(key) < KEEP_MS)
+}
+
+/** Whether this page already dropped the old entries; once per page is enough. */
+let pruned = false
+
+async function pruneOnce(now: number): Promise<void> {
+  if (pruned) return
+  pruned = true
+  await Promise.all(
+    (await logKeys()).filter((key) => isExpiredLogKey(key, now)).map((key) => storageRemove(key)),
+  )
+}
+
 export async function debugLog(id: string, event: string, detail = ''): Promise<void> {
   const at = Date.now()
   const entry: DebugEntry = { at, where: location.hostname, id, event, detail }
   await storageSet(`${LOG_PREFIX}${at}_${Math.random().toString(36).slice(2, 8)}`, JSON.stringify(entry))
+  await pruneOnce(at)
 }
 
 function parseEntry(raw: string | null): DebugEntry | null {
@@ -34,10 +63,6 @@ function parseEntry(raw: string | null): DebugEntry | null {
   } catch {
     return null
   }
-}
-
-async function logKeys(): Promise<string[]> {
-  return (await storageKeys()).filter((key) => key.startsWith(LOG_PREFIX))
 }
 
 /** Every entry, oldest first. */

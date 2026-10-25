@@ -222,14 +222,15 @@ watch(searchOpen, (shown) => {
     </div>
     <div class="ehl-tabs ehl-tabs--end">
       <div v-if="source" class="ehl-unit">
-        <button type="button" class="ehl-icon ehl-search-button" :class="{ 'ehl-icon--active': searchOpen, 'ehl-tab--pinned': searchOpen }" :title="t('searchTitle')" @click="toggleSearch()">
+        <button type="button" class="ehl-icon ehl-labeled-button" :class="{ 'ehl-icon--active': searchOpen, 'ehl-tab--pinned': searchOpen }" :title="t('searchTitle')" @click="toggleSearch()">
           <Globe :size="14" aria-hidden="true" />
           <span>{{ t('search') }}</span>
         </button>
       </div>
       <div class="ehl-unit">
-        <button type="button" class="ehl-icon" :class="{ 'ehl-icon--active': settingsOpen, 'ehl-tab--pinned': settingsOpen }" :title="t('settings')" @click="settingsOpen = !settingsOpen">
+        <button type="button" class="ehl-icon ehl-labeled-button" :class="{ 'ehl-icon--active': settingsOpen, 'ehl-tab--pinned': settingsOpen }" :title="t('settings')" @click="settingsOpen = !settingsOpen">
           <Settings :size="14" aria-hidden="true" />
+          <span>{{ t('settings') }}</span>
         </button>
         <SettingsPopup v-if="settingsOpen" />
       </div>
@@ -806,7 +807,7 @@ watch(searchOpen, (shown) => {
   opacity: 0.85;
 }
 /* The one bar button that carries a word as well as its icon. */
-.ehl-search-button {
+.ehl-labeled-button {
   gap: 4px;
   font-weight: 700;
 }

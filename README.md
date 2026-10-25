@@ -5,6 +5,8 @@
 Inspired by [TranslatedJump](https://github.com/EhTagTranslation/UserScripts/tree/master/TranslatedJump): besides other language editions, also finds the series, source magazine and chapters of an E-Hentai / ExHentai gallery, and searches Google, DuckDuckGo, DLsite and pixiv for its source
 
 ## Screenshots
+<img width="3196" height="1147" alt="Image" src="https://github.com/user-attachments/assets/4bcc7194-0197-491a-8e37-2a7600160c6c" />
+<img width="3044" height="1366" alt="Image" src="https://github.com/user-attachments/assets/d29c4c51-a27b-452a-82f0-8c7739c62bb0" />
 
 ## Features
 

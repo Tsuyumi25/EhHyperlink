@@ -2,24 +2,27 @@
 
 [English](README.md)
 
-從 E-Hentai / ExHentai 的畫廊頁一鍵跳到它的其他語言版本、同系列、原刊雜誌和收錄作品。
+受 [TranslatedJump](https://github.com/EhTagTranslation/UserScripts/tree/master/TranslatedJump) 啟發的 E-Hentai / ExHentai 畫廊關聯腳本：除了其他語言版本，也找同系列、原刊雜誌與收錄作品，並用 Google、DuckDuckGo、DLsite、pixiv 找來源
 
-介面有繁中、簡中、英、日、韓五種語言，可以在設定裡選，也可以跟隨瀏覽器。中文介面下，封面預覽裡的 tag 會顯示 [EhTagTranslation](https://github.com/EhTagTranslation/Database)（EhSyringe 用的那份資料庫）的中文名稱；繁中介面再用 [OpenCC](https://github.com/BYVoid/OpenCC) 的字典轉成繁體。兩者都在第一次用到時才下載，保留一週。
+## 截圖
 
-## 找來源
+## 功能
 
-圖庫沒人貼來源時，按設定鈕左邊的「搜索」就會直接開始搜：Google 和 DuckDuckGo 搜整個標題（只留社團／作者區塊和作品名，去掉前面的場次和後面的語言、版本標記），DLsite 和 pixiv 搜標題切出來的作品、社團、作者。每個搜尋都用你自己的瀏覽器（帶著你的登入）在背景分頁打開，圖庫框會換成搜尋畫面：左邊列出各個網站，右邊是該網站的結果，DLsite 和 pixiv 附上封面與縮圖，背景分頁隨後關掉；按「下一頁」會用同樣的方式再抓一頁。結果裡出現這本的作品、社團、作者名時會標起來，就像搜尋引擎把關鍵字標粗；滑鼠移到一筆結果上會出現複製網址的按鈕，Google 的結果複製的是原站網址，不是 Google 的轉址。
+- [x] 畫廊的其他語言版本、同系列、原刊雜誌與收錄作品
+- [x] 同作者、同 cosplayer 的相關作品
+- [x] 用 Google、DuckDuckGo、DLsite、pixiv 找來源
+- [x] 封面預覽，tag 顯示 [EhTagTranslation](https://github.com/EhTagTranslation/Database) 的中文名稱
+- [x] 繁體中文、簡體中文、英文、日文、韓文介面
+- [x] 支援 E-Hentai 與 ExHentai
 
 ## 安裝
 
-需要 [Tampermonkey](https://www.tampermonkey.net/) 或相容的 userscript manager。
+需要 [Tampermonkey](https://www.tampermonkey.net/) 或相容的腳本管理器，以及 [Eh View Refined](https://sleazyfork.org/scripts/601247-eh-view-refined)，並將它排在執行順序的最前面。
 
-另需安裝 **Eh View Refined**，並將它排在 EhHyperlink 之前執行。EhHyperlink 透過 Extended search request 取得圖庫 metadata；Eh View Refined 會在網站維持 Extended 模式的同時模擬其他原生排版，保留使用者選擇的瀏覽方式。
+（EhHyperlink 直接請求 Extended 模式的搜尋列表來取得畫廊資料，這會把網站的顯示模式切成 Extended；Eh View Refined 會在網站維持 Extended 的同時，照你選的排版顯示。）
 
 - [ ] Sleazy Fork
 - [ ] GitHub Releases
-
-還沒發佈之前：`pnpm build` 之後安裝 `dist/eh-hyperlink.user.js`。
 
 ## 開發
 
@@ -27,12 +30,10 @@
 git clone https://github.com/Tsuyumi25/EhHyperlink.git
 cd EhHyperlink
 pnpm install
-pnpm dev       # 啟動 dev server，瀏覽器會自動安裝開發版 userscript
-pnpm build     # 輸出 dist/eh-hyperlink.user.js
+pnpm dev       # 啟動 dev server，瀏覽器會自動安裝開發用 userscript
+pnpm build     # 產出 dist/eh-hyperlink.user.js
 pnpm test      # vitest
 ```
-
-貢獻規範、範圍和「測試／fixture 不引用真實作品」的政策在 [AGENTS.md](AGENTS.md)。
 
 ## 技術棧
 
@@ -42,12 +43,14 @@ pnpm test      # vitest
 
 ## 致謝
 
+- [EhTagTranslation/Database](https://github.com/EhTagTranslation/Database) — tag 翻譯資料庫（CC BY-NC-SA 3.0）
+- [BYVoid/OpenCC](https://github.com/BYVoid/OpenCC) — 簡繁轉換字典（Apache-2.0）
 - [URenko/e-hentai-db](https://github.com/URenko/e-hentai-db)
 
 ## 靈感來源
 
 - [EhTagTranslation/UserScripts — TranslatedJump](https://github.com/EhTagTranslation/UserScripts/tree/master/TranslatedJump)
-- [Exhentai-Enhancer](https://github.com/sk2589822/Exhentai-Enhancer) — 技術棧參考
+- [sk2589822/Exhentai-Enhancer](https://github.com/sk2589822/Exhentai-Enhancer) — 技術棧參考
 
 ## 授權
 

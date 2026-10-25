@@ -2,24 +2,27 @@
 
 [繁體中文](README.zh-TW.md)
 
-Jump from an E-Hentai / ExHentai gallery to its other language editions, its series, the magazine it came from, and the chapters it contains.
+Inspired by [TranslatedJump](https://github.com/EhTagTranslation/UserScripts/tree/master/TranslatedJump): besides other language editions, also finds the series, source magazine and chapters of an E-Hentai / ExHentai gallery, and searches Google, DuckDuckGo, DLsite and pixiv for its source
 
-The interface is in Traditional Chinese, Simplified Chinese, English, Japanese or Korean, picked in the settings or taken from the browser. In Chinese, the tags in the cover preview show their names from [EhTagTranslation](https://github.com/EhTagTranslation/Database), the database EhSyringe uses — converted to Traditional with [OpenCC](https://github.com/BYVoid/OpenCC)'s dictionaries for the Traditional interface. Both are downloaded the first time they are needed and kept for a week.
+## Screenshots
 
-## Source search
+## Features
 
-When nobody has posted where a gallery comes from, **Search** left of the settings button searches for it right away: Google and DuckDuckGo with the whole title (creator block and work, without the event, language or release tags around them), DLsite and pixiv with the work, circle and artist read from the title. Each search opens in a background tab of your own browser, signed in as you are; the gallery box gives way to a view with the sites listed on the left and each site's results on the right — store covers and pixiv thumbnails as cards — and the tab is closed. **Next page** fetches one more page the same way. Wherever the gallery's work, circle or artist names appear in a result, they are marked, as a search engine bolds its query; hovering a result shows a button that copies its link — for Google, the site's own address rather than Google's redirect.
+- [x] Other language editions, series, source magazine and chapters of a gallery
+- [x] Related works by the same creator or cosplayer
+- [x] Source search on Google, DuckDuckGo, DLsite and pixiv
+- [x] Cover preview with Chinese tag names from [EhTagTranslation](https://github.com/EhTagTranslation/Database)
+- [x] Traditional Chinese, Simplified Chinese, English, Japanese, and Korean UI
+- [x] E-Hentai and ExHentai support
 
 ## Install
 
-Requires [Tampermonkey](https://www.tampermonkey.net/) or a compatible userscript manager.
+Requires [Tampermonkey](https://www.tampermonkey.net/) or a compatible userscript manager, and [Eh View Refined](https://sleazyfork.org/scripts/601247-eh-view-refined) placed first in the execution order.
 
-Also requires **Eh View Refined**, placed before EhHyperlink in the userscript execution order. EhHyperlink uses Extended search requests for gallery metadata; Eh View Refined preserves the user's chosen layout by simulating other native views while the site stays in Extended mode.
+(EhHyperlink reads gallery data from search lists requested in Extended mode, which switches the site to Extended; Eh View Refined keeps showing your chosen layout while the site stays in Extended.)
 
 - [ ] Sleazy Fork
 - [ ] GitHub Releases
-
-Until a release exists: `pnpm build` and install `dist/eh-hyperlink.user.js`.
 
 ## Development
 
@@ -32,8 +35,6 @@ pnpm build     # Output dist/eh-hyperlink.user.js
 pnpm test      # vitest
 ```
 
-Contributor rules, scope and the no-real-works policy for tests and fixtures are in [AGENTS.md](AGENTS.md).
-
 ## Tech Stack
 
 - TypeScript + Vue 3 + Vite
@@ -42,12 +43,14 @@ Contributor rules, scope and the no-real-works policy for tests and fixtures are
 
 ## Credits
 
+- [EhTagTranslation/Database](https://github.com/EhTagTranslation/Database) — Tag translation database (CC BY-NC-SA 3.0)
+- [BYVoid/OpenCC](https://github.com/BYVoid/OpenCC) — Simplified/Traditional conversion dictionaries (Apache-2.0)
 - [URenko/e-hentai-db](https://github.com/URenko/e-hentai-db)
 
 ## Inspiration
 
 - [EhTagTranslation/UserScripts — TranslatedJump](https://github.com/EhTagTranslation/UserScripts/tree/master/TranslatedJump)
-- [Exhentai-Enhancer](https://github.com/sk2589822/Exhentai-Enhancer) — Tech stack reference
+- [sk2589822/Exhentai-Enhancer](https://github.com/sk2589822/Exhentai-Enhancer) — Tech stack reference
 
 ## License
 

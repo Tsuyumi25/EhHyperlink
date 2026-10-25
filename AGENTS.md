@@ -181,6 +181,10 @@ and commit messages:
   gallery page, category
 - `src/core/pipeline.ts` — the flow only: plan → search → classify → group.
   No title logic here; add a module and call it.
+- `src/core/tags/`, `src/services/tagNames.ts` — Chinese tag names in the cover
+  preview: EhTagTranslation's `db.text.json` and, for zh-TW, OpenCC's own
+  dictionaries, fetched from jsDelivr when a Chinese locale first needs them and
+  kept in GM storage for a week; never bundled
 - `src/core/source/` — source search: work / circle / artist terms read off
   the gallery, the table of store and creator search URLs, and one reader per
   previewed site (`google.ts`, `duckduckgo.ts`, `dlsite.ts`, `pixiv.ts`): which search a page

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { locale } from '@/i18n'
+import { namespaceName, tagName } from '@/services/tagNames'
 
 const props = defineProps<{ tags: readonly string[] }>()
 
@@ -25,9 +27,9 @@ const groups = computed(() => {
 <template>
   <div class="ehl-tags">
     <div v-for="group in groups" :key="group.namespace" class="ehl-tags__row">
-      <span class="ehl-tags__label">{{ group.namespace }}:</span>
+      <span class="ehl-tags__label">{{ namespaceName(group.namespace, locale) }}:</span>
       <span class="ehl-tags__cells">
-        <span v-for="value in group.values" :key="value" class="ehl-tags__chip">{{ value }}</span>
+        <span v-for="value in group.values" :key="value" class="ehl-tags__chip" :title="`${group.namespace}:${value}`">{{ tagName(group.namespace, value, locale) }}</span>
       </span>
     </div>
   </div>

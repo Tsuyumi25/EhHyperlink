@@ -4,6 +4,8 @@
 
 Jump from an E-Hentai / ExHentai gallery to its other language editions, its series, the magazine it came from, and the chapters it contains.
 
+The interface is in Traditional Chinese, Simplified Chinese, English, Japanese or Korean, picked in the settings or taken from the browser. In Chinese, the tags in the cover preview show their names from [EhTagTranslation](https://github.com/EhTagTranslation/Database), the database EhSyringe uses — converted to Traditional with [OpenCC](https://github.com/BYVoid/OpenCC)'s dictionaries for the Traditional interface. Both are downloaded the first time they are needed and kept for a week.
+
 ## Source search
 
 When nobody has posted where a gallery comes from, **Search** left of the settings button searches for it right away: Google and DuckDuckGo with the whole title (creator block and work, without the event, language or release tags around them), DLsite and pixiv with the work, circle and artist read from the title. Each search opens in a background tab of your own browser, signed in as you are; the gallery box gives way to a view with the sites listed on the left and each site's results on the right — store covers and pixiv thumbnails as cards — and the tab is closed. **Next page** fetches one more page the same way. Wherever the gallery's work, circle or artist names appear in a result, they are marked, as a search engine bolds its query; hovering a result shows a button that copies its link — for Google, the site's own address rather than Google's redirect.

@@ -1,6 +1,8 @@
-import { createApp } from 'vue'
+import { createApp, watch } from 'vue'
 import App from '@/App.vue'
 import { loadSettings } from '@/settings'
+import { locale } from '@/i18n'
+import { prepareTagNames } from '@/services/tagNames'
 import { answerPreview } from '@/services/preview'
 import { isTraced, requestIdOf } from '@/core/source/preview'
 import { debugLog, describeError } from '@/services/debugLog'
@@ -34,6 +36,8 @@ async function mountGalleryPage(): Promise<void> {
   container.style.setProperty('--ehl-border', getComputedStyle(host).borderTopColor)
   host.before(container)
   createApp(App).mount(container)
+  // Fetched ahead of the first cover preview, which is where tag names show.
+  watch(locale, (current) => void prepareTagNames(current), { immediate: true })
 }
 
 /**

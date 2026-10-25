@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Minus, Plus } from '@lucide/vue'
+import { ref } from 'vue'
+import { CircleQuestionMark, Minus, Plus } from '@lucide/vue'
 import { t, type MessageKey } from '@/i18n'
 import { isMaxRequests, settings, VIEWS, type View } from '@/settings'
 
@@ -7,6 +8,9 @@ const VIEW_KEY: Record<View, MessageKey> = {
   list: 'viewList',
   covers: 'viewCovers',
 }
+
+/** The Paging Enlargement note, shown only when asked for: most readers never need it. */
+const perkHelpOpen = ref(false)
 
 function stepMaxRequests(by: number): void {
   const value = settings.maxRequests + by
@@ -17,7 +21,7 @@ function stepMaxRequests(by: number): void {
 <template>
   <div class="ehl-settings" translate="no">
     <section class="ehl-settings__group">
-      <h3 class="ehl-settings__heading">{{ t('settingGroupDisplay') }}</h3>
+      <h3 class="ehl-settings__heading">{{ t('settingGroupRelated') }}</h3>
       <div class="ehl-settings__row">
         <span class="ehl-settings__label">{{ t('settingView') }}</span>
         <div class="ehl-settings__segments" role="radiogroup" :aria-label="t('settingView')">
@@ -27,16 +31,25 @@ function stepMaxRequests(by: number): void {
           </label>
         </div>
       </div>
-    </section>
-
-    <section class="ehl-settings__group">
-      <h3 class="ehl-settings__heading">{{ t('settingGroupSearch') }}</h3>
       <label class="ehl-settings__row ehl-settings__row--toggle">
         <span class="ehl-settings__label">{{ t('settingShowExcludedLanguages') }}</span>
         <input v-model="settings.languages" class="ehl-settings__switch" type="checkbox" role="switch" true-value="all" false-value="account" />
       </label>
       <div class="ehl-settings__row">
-        <span class="ehl-settings__label">{{ t('settingMaxRequests') }}</span>
+        <span class="ehl-settings__label">
+          {{ t('settingMaxRequests') }}
+          <button
+            type="button"
+            class="ehl-settings__help"
+            :class="{ 'ehl-settings__help--open': perkHelpOpen }"
+            :title="t('pagingPerksTitle')"
+            :aria-label="t('pagingPerksTitle')"
+            :aria-expanded="perkHelpOpen"
+            @click="perkHelpOpen = !perkHelpOpen"
+          >
+            <CircleQuestionMark :size="12" aria-hidden="true" />
+          </button>
+        </span>
         <div class="ehl-settings__stepper">
           <button type="button" :aria-label="t('decrease')" :disabled="!isMaxRequests(settings.maxRequests - 1)" @click="stepMaxRequests(-1)">
             <Minus :size="11" aria-hidden="true" />
@@ -47,8 +60,8 @@ function stepMaxRequests(by: number): void {
           </button>
         </div>
       </div>
-      <!-- Each search fetches one page of results; the perk makes a page longer, so fewer searches cover the same galleries. -->
-      <div class="ehl-settings__note">
+      <!-- Each search reads only its first page of results; the perk makes that page longer. -->
+      <div v-if="perkHelpOpen" class="ehl-settings__note">
         <p>
           <strong>{{ t('pagingPerksTitle') }}</strong>
           {{ t('pagingPerksDescription') }}
@@ -62,7 +75,7 @@ function stepMaxRequests(by: number): void {
     </section>
 
     <section class="ehl-settings__group">
-      <h3 class="ehl-settings__heading">{{ t('settingGroupAdvanced') }}</h3>
+      <h3 class="ehl-settings__heading">{{ t('settingGroupSources') }}</h3>
       <label class="ehl-settings__row ehl-settings__row--toggle">
         <span class="ehl-settings__label">{{ t('settingDebug') }}</span>
         <input v-model="settings.debug" class="ehl-settings__switch" type="checkbox" role="switch" />
@@ -235,6 +248,22 @@ function stepMaxRequests(by: number): void {
   font-variant-numeric: tabular-nums;
 }
 
+.ehl-settings__help {
+  display: inline-flex;
+  margin: 0 0 0 2px;
+  padding: 1px;
+  color: inherit;
+  vertical-align: -2px;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.5;
+}
+.ehl-settings__help:hover,
+.ehl-settings__help--open {
+  opacity: 1;
+}
 .ehl-settings__note {
   margin: 2px 0 4px;
   padding: 6px 8px;

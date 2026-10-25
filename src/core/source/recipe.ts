@@ -1,11 +1,12 @@
 import type { SourceGallery } from '../eh/galleryPage'
+import { duckDuckGoSearchUrl } from './duckduckgo'
 import { googleSearchUrl } from './google'
 import { SEARCH_SITES } from './sites'
 import { googleQuery, searchTerms, type TermKind } from './terms'
 
 const JP_SITES = 'site:*.jp'
 
-export type RecipeSiteId = 'google' | 'googleJp' | 'dlsite' | 'pixiv'
+export type RecipeSiteId = 'google' | 'googleJp' | 'duckduckgo' | 'dlsite' | 'pixiv'
 
 /** One search the panel runs as soon as it opens. */
 export interface RecipeSearch {
@@ -41,6 +42,8 @@ export function searchRecipe(source: SourceGallery): RecipeSearch[] {
     // Japanese pages, pixiv and X drop out.
     const jp = `${title} ${JP_SITES}`
     searches.push({ site: 'googleJp', kind: 'title', text: jp, url: googleSearchUrl(jp) })
+    // A second engine with an index of its own, for what Google ranks low or leaves out.
+    searches.push({ site: 'duckduckgo', kind: 'title', text: title, url: duckDuckGoSearchUrl(title) })
   }
   const terms = searchTerms(source)
   for (const site of ['dlsite', 'pixiv'] as const) {

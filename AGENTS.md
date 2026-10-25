@@ -182,7 +182,7 @@ and commit messages:
   No title logic here; add a module and call it.
 - `src/core/source/` — source search: work / circle / artist terms read off
   the gallery, the table of store and creator search URLs, and one reader per
-  previewed site (`google.ts`, `dlsite.ts`, `pixiv.ts`): which search a page
+  previewed site (`google.ts`, `duckduckgo.ts`, `dlsite.ts`, `pixiv.ts`): which search a page
   shows, how to reach its next page, and how to read its results
 - `src/services/preview.ts` — the preview round trip: the gallery page leaves
   a request in GM storage and opens the search in a background tab with the

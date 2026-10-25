@@ -8,7 +8,7 @@ function gallery(titleJpn: string): SourceGallery {
 
 describe('searchRecipe', () => {
   // Google gets the whole title without event and language tags, once open
-  // and once kept to `.jp` sites; DLsite and
+  // and once kept to `.jp` sites, and DuckDuckGo the same; DLsite and
   // pixiv get each term, pixiv splitting works (artwork search) from creators
   // (user search).
   it('runs the title on Google and each term on DLsite and pixiv', () => {
@@ -16,6 +16,7 @@ describe('searchRecipe', () => {
     expect(recipe.map((search) => [search.site, search.kind, search.text])).toEqual([
       ['google', 'title', '[サークル甲 (作家乙)] 作品乙'],
       ['googleJp', 'title', '[サークル甲 (作家乙)] 作品乙 site:*.jp'],
+      ['duckduckgo', 'title', '[サークル甲 (作家乙)] 作品乙'],
       ['dlsite', 'work', '作品乙'],
       ['dlsite', 'circle', 'サークル甲'],
       ['dlsite', 'artist', '作家乙'],

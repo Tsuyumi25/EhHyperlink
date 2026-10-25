@@ -15,7 +15,7 @@ import SiteIcon from './SiteIcon.vue'
 const props = defineProps<{ source: SourceGallery }>()
 const emit = defineEmits<{ close: [] }>()
 
-const SITE_NAME: Record<RecipeSiteId, string> = { google: 'Google', googleJp: 'Google .jp', dlsite: 'DLsite', pixiv: 'pixiv' }
+const SITE_NAME: Record<RecipeSiteId, string> = { google: 'Google', googleJp: 'Google .jp', duckduckgo: 'DuckDuckGo', dlsite: 'DLsite', pixiv: 'pixiv' }
 const KIND_LABEL: Record<RecipeSearch['kind'], MessageKey> = {
   title: 'termTitle',
   work: 'termWork',
@@ -26,7 +26,7 @@ const KIND_LABEL: Record<RecipeSearch['kind'], MessageKey> = {
 const recipe = searchRecipe(props.source)
 /** Every result marks this gallery's work, circle and artist names wherever they appear, whichever search found it. */
 const words = matchWords(searchTerms(props.source).map((term) => term.text))
-const sites = (['google', 'googleJp', 'dlsite', 'pixiv'] as const)
+const sites = (['google', 'googleJp', 'duckduckgo', 'dlsite', 'pixiv'] as const)
   .map((id) => ({ id, name: SITE_NAME[id], searches: recipe.filter((search) => search.site === id) }))
   .filter((site) => site.searches.length > 0)
 

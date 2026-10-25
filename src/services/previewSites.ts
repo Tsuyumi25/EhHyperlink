@@ -1,3 +1,4 @@
+import { duckDuckGoNextForm, duckDuckGoPageOf, duckDuckGoPageUrl, duckDuckGoSearchOf, isDuckDuckGoResultPage, readDuckDuckGoResults } from '@/core/source/duckduckgo'
 import { dlsiteHasNextPage, dlsitePageUrl, dlsiteResultState, dlsiteSearchOf, readDlsiteResults } from '@/core/source/dlsite'
 import { googlePageUrl, googleResultsArea, googleSearchOf, isGoogleRedirect, readGoogleResults } from '@/core/source/google'
 import { isPixivUserSearch, pixivApiUrl, pixivPageUrl, pixivSearchOf, pixivUserWorksUrl, readPixivResults, readPixivUserWorks } from '@/core/source/pixiv'
@@ -59,6 +60,43 @@ const GOOGLE: PreviewSite = {
   },
 }
 
+/**
+ * Post the "Next" form of `page` and parse what comes back: DuckDuckGo pages
+ * only that way. Same-origin from the search's own tab, so the request is the
+ * one the reader's own press would send.
+ */
+async function nextDuckDuckGoPage(page: Document): Promise<Document | null> {
+  const form = duckDuckGoNextForm(page)
+  if (!form) return null
+  const fields = [...new FormData(form)].map(([name, value]): [string, string] => [name, String(value)])
+  const response = await fetch(form.action, { method: 'POST', body: new URLSearchParams(fields) })
+  return new DOMParser().parseFromString(await response.text(), 'text/html')
+}
+
+const DUCKDUCKGO: PreviewSite = {
+  id: 'duckduckgo',
+  searchOf: duckDuckGoSearchOf,
+  pageUrl: duckDuckGoPageUrl,
+  async read(url) {
+    let page: Document = document
+    for (let left = duckDuckGoPageOf(url); left > 0; left--) {
+      let next: Document | null
+      try {
+        next = await nextDuckDuckGoPage(page)
+      } catch {
+        return { status: 'unreadable', results: [] }
+      }
+      if (!next) return { status: 'empty', results: [], last: true }
+      page = next
+    }
+    if (!isDuckDuckGoResultPage(page)) return { status: 'unreadable', results: [] }
+    const results = readDuckDuckGoResults(page)
+    const answer: PreviewAnswer = { status: results.length > 0 ? 'ok' : 'empty', results }
+    if (!duckDuckGoNextForm(page)) answer.last = true
+    return answer
+  },
+}
+
 const DLSITE: PreviewSite = {
   id: 'dlsite',
   searchOf: dlsiteSearchOf,
@@ -104,7 +142,7 @@ const PIXIV: PreviewSite = {
   },
 }
 
-const SITES: readonly PreviewSite[] = [GOOGLE, DLSITE, PIXIV]
+const SITES: readonly PreviewSite[] = [GOOGLE, DUCKDUCKGO, DLSITE, PIXIV]
 
 /** The site whose search `url` is, if the popup can preview it. */
 export function previewSiteFor(url: URL): PreviewSite | null {

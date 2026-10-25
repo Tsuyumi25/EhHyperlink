@@ -116,3 +116,25 @@ export function requestFor(requests: readonly PreviewRequest[], key: string, now
   return matching.at(-1) ?? null
 }
 
+
+const WEB_SCHEMES = ['http:', 'https:']
+
+function isWebLink(href: string): boolean {
+  try {
+    return WEB_SCHEMES.includes(new URL(href).protocol)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * `answer` with every link that would not open a web page dropped: the links
+ * come from other sites' markup and end up as `href`s and copied text on the
+ * gallery page, where a `javascript:` one would run if clicked.
+ */
+export function withWebLinksOnly(answer: PreviewAnswer): PreviewAnswer {
+  const results = answer.results
+    .filter((result) => isWebLink(result.href))
+    .map((result) => ({ ...result, works: result.works.filter((work) => isWebLink(work.href)) }))
+  return { ...answer, results }
+}

@@ -1,5 +1,5 @@
 import { GM_addValueChangeListener, GM_openInTab, GM_removeValueChangeListener } from '$'
-import { freshRequestIdOf, isFresh, isTraced, newRequestId, requestFor, requestIdOf, withDebugTrace, withRequestId, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
+import { freshRequestIdOf, isFresh, isTraced, newRequestId, requestFor, requestIdOf, withDebugTrace, withRequestId, withWebLinksOnly, type PreviewAnswer, type PreviewRequest } from '@/core/source/preview'
 import { debugLog, describeError } from '@/services/debugLog'
 import { settings } from '@/settings'
 import { storageGet, storageKeys, storageRemove, storageSet } from '@/services/gmStorage'
@@ -55,7 +55,7 @@ async function dropExpiredRequests(now: number): Promise<void> {
 function readAnswer(raw: string | null): PreviewAnswer | null {
   if (!raw) return null
   try {
-    return JSON.parse(raw) as PreviewAnswer
+    return withWebLinksOnly(JSON.parse(raw) as PreviewAnswer)
   } catch {
     return null
   }

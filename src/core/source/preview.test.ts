@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { googleSearchOf, googleSearchUrl } from './google'
-import { freshRequestIdOf, newRequestId, PREVIEW_TTL_MS, requestFor, withRequestId } from './preview'
+import { freshRequestIdOf, newRequestId, PREVIEW_TTL_MS, requestFor, withRequestId, withWebLinksOnly, type PreviewResult } from './preview'
 
 const NOW = 1_000_000
 const key = (query: string, page = 0): string => googleSearchOf(new URL(googleSearchUrl(query, page)))?.key as string
@@ -57,5 +57,28 @@ describe('requestFor', () => {
     const stale = { id: 'a', key: key('作品乙'), at: NOW - PREVIEW_TTL_MS - 1 }
     expect(requestFor([stale], key('作品乙'), NOW)).toBeNull()
     expect(requestFor([stale], key('something else'), NOW)).toBeNull()
+  })
+})
+
+describe('withWebLinksOnly', () => {
+  const result = (href: string, works: string[] = []): PreviewResult => ({
+    title: '作品乙',
+    href,
+    origin: null,
+    icon: null,
+    byline: '',
+    snippet: '',
+    thumb: null,
+    works: works.map((work) => ({ href: work, thumb: '', title: '' })),
+  })
+
+  // Links come from other sites' markup; only ones that open a web page reach the gallery page.
+  it('drops results and works whose link is not http or https', () => {
+    const answer = withWebLinksOnly({
+      status: 'ok',
+      results: [result('https://store.example/1', ['javascript:alert(1)', 'https://store.example/2']), result('javascript:alert(1)'), result('not a url')],
+    })
+    expect(answer.results.map((kept) => kept.href)).toEqual(['https://store.example/1'])
+    expect(answer.results[0].works.map((work) => work.href)).toEqual(['https://store.example/2'])
   })
 })

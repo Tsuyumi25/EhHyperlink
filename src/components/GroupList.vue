@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Book, Edition, EditionFlag, EditionGroup } from '@/core/pipeline'
-import { displayTitle, otherTitle, settings, subtitle } from '@/settings'
+import { settings } from '@/settings'
 import { locale, type MessageKey, t } from '@/i18n'
 import StarRating from '@/components/StarRating.vue'
 import TagList from '@/components/TagList.vue'
@@ -129,8 +129,7 @@ function showPreview(release: Edition | null): void {
                 </span>
                 <span class="ehl-rowtext">
                   <span class="ehl-title">
-                    {{ displayTitle(release.hit) }}
-                    <span v-if="subtitle(release.hit)" class="ehl-subtitle">{{ subtitle(release.hit) }}</span>
+                    {{ release.hit.title }}
                   </span>
                   <span class="ehl-facts">
                     <StarRating v-if="release.hit.rating !== null" :rating="release.hit.rating" />
@@ -151,11 +150,7 @@ function showPreview(release: Edition | null): void {
     <div v-if="preview" class="ehl-preview" :style="previewStyle">
       <img v-if="preview.hit.thumb" :src="preview.hit.thumb" alt="" referrerpolicy="no-referrer" />
       <div class="ehl-preview-text">
-        <span class="ehl-preview-title">{{ displayTitle(preview.hit) }}</span>
-        <!-- Both titles whatever the list setting says: the preview is where a reader
-             goes to be sure which book this is, and the other field is what separates
-             two releases whose work text reads the same. -->
-        <span v-if="otherTitle(preview.hit)" class="ehl-subtitle">{{ otherTitle(preview.hit) }}</span>
+        <span class="ehl-preview-title">{{ preview.hit.title }}</span>
         <span class="ehl-facts">
           <StarRating v-if="preview.hit.rating !== null" :rating="preview.hit.rating" />
           <span v-for="flag in preview.flags" :key="flag" class="ehl-flag">{{ t(FLAG_LABELS[flag]) }}</span>

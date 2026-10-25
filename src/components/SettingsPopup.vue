@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import { Minus, Plus } from '@lucide/vue'
 import { t, type MessageKey } from '@/i18n'
-import { isMaxRequests, settings, TITLE_LANGUAGES, type TitleLanguage, VIEWS, type View } from '@/settings'
-
-const TITLE_KEY: Record<TitleLanguage, MessageKey> = {
-  romanized: 'titleRomanized',
-  japanese: 'titleJapanese',
-}
+import { isMaxRequests, settings, VIEWS, type View } from '@/settings'
 
 const VIEW_KEY: Record<View, MessageKey> = {
   list: 'viewList',
@@ -24,15 +19,6 @@ function stepMaxRequests(by: number): void {
     <section class="ehl-settings__group">
       <h3 class="ehl-settings__heading">{{ t('settingGroupDisplay') }}</h3>
       <div class="ehl-settings__row">
-        <span class="ehl-settings__label">{{ t('settingTitleLanguage') }}</span>
-        <div class="ehl-settings__segments" role="radiogroup" :aria-label="t('settingTitleLanguage')">
-          <label v-for="language in TITLE_LANGUAGES" :key="language" class="ehl-settings__segment">
-            <input v-model="settings.titleLanguage" type="radio" name="ehl-title-language" :value="language" />
-            <span>{{ t(TITLE_KEY[language]) }}</span>
-          </label>
-        </div>
-      </div>
-      <div class="ehl-settings__row">
         <span class="ehl-settings__label">{{ t('settingView') }}</span>
         <div class="ehl-settings__segments" role="radiogroup" :aria-label="t('settingView')">
           <label v-for="view in VIEWS" :key="view" class="ehl-settings__segment">
@@ -41,10 +27,6 @@ function stepMaxRequests(by: number): void {
           </label>
         </div>
       </div>
-      <label class="ehl-settings__row ehl-settings__row--toggle">
-        <span class="ehl-settings__label">{{ t('settingSubtitle') }}</span>
-        <input v-model="settings.showSubtitle" class="ehl-settings__switch" type="checkbox" role="switch" />
-      </label>
     </section>
 
     <section class="ehl-settings__group">

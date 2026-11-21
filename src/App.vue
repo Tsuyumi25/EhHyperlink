@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import GroupList from '@/components/GroupList.vue'
 import LanguageBadge from '@/components/LanguageBadge.vue'
 import SettingsPopup from '@/components/SettingsPopup.vue'
@@ -7,11 +7,14 @@ import SearchPanel from '@/components/SearchPanel.vue'
 import { Activity, CircleSlash2, Globe, RefreshCw, Settings } from '@lucide/vue'
 import { locale, t, LANGUAGE_PRIORITY, type MessageKey } from '@/i18n'
 import type { Locale } from '@/core/locale'
-import { readSourceGallery, type SourceGallery } from '@/core/eh/galleryPage'
+import type { SourceGallery } from '@/core/eh/galleryPage'
 import { findEditions, type EditionGroup, type JumpResult, type SearchProgress, type SearchRequest } from '@/core/pipeline'
 import type { FailureKind } from '@/core/eh/request'
 import { requestFailed } from '@/core/eh/requestLog'
 import { settings } from '@/settings'
+
+/** Read by main.ts from whichever `.gm` the bar is mounted on: the gallery page's own, or one shown inside a reader. */
+const props = defineProps<{ source: SourceGallery | null }>()
 
 const state = ref<'searching' | 'done' | 'noTitle' | 'failed'>('searching')
 const result = ref<JumpResult | null>(null)
@@ -22,11 +25,14 @@ const pinned = ref<string | null>(null)
 const hovered = ref<string | null>(null)
 const open = computed(() => pinned.value ?? hovered.value)
 
-/** Kept so the refetch button can run the same search again. */
-const source = ref<SourceGallery | null>(null)
+// In the Multi-Page Viewer the bar comes and goes with the gallery box another
+// script lays over the page; a search it started must not keep sending requests
+// after it is gone, or reopening the box runs two batches at once.
+const unmounted = new AbortController()
+onBeforeUnmount(() => unmounted.abort())
 
 async function run(force: boolean): Promise<void> {
-  const gallery = source.value
+  const gallery = props.source
   if (!gallery) return
   state.value = 'searching'
   progress.value = null
@@ -37,6 +43,7 @@ async function run(force: boolean): Promise<void> {
       onResult: (next) => (result.value = next),
       maxRequests: settings.maxRequests,
       languages: settings.languages,
+      signal: unmounted.signal,
     })
     result.value = found
     state.value = found.status === 'failed' ? 'failed' : hasNoSearchTerms(found) ? 'noTitle' : 'done'
@@ -65,8 +72,7 @@ const hasActivity = computed(() => {
 })
 
 onMounted(async () => {
-  source.value = readSourceGallery()
-  if (!source.value) {
+  if (!props.source) {
     state.value = 'noTitle'
     return
   }

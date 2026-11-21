@@ -1,5 +1,4 @@
 import { readCategory } from './category'
-import { galleryRef } from './ehUrl'
 
 export interface SourceGallery {
   gid: number
@@ -10,13 +9,12 @@ export interface SourceGallery {
   tags: string[]
 }
 
-/** Read the current gallery from the EH gallery page DOM; null when this is not a gallery page. */
-export function readSourceGallery(root: Document = document, pathname: string = location.pathname): SourceGallery | null {
-  const ref = galleryRef(pathname)
+/** Read a gallery from the EH gallery box (`.gm`, or the whole gallery page); null when it carries no title. */
+export function readSourceGallery(root: ParentNode, gid: number): SourceGallery | null {
   const title = root.querySelector('#gn')?.textContent?.trim() ?? ''
-  if (ref === null || !title) return null
+  if (!title) return null
   return {
-    gid: ref.gid,
+    gid,
     title,
     titleJpn: root.querySelector('#gj')?.textContent?.trim() ?? '',
     category: readCategory(root.querySelector('#gdc .cs, #gdc .cn')),

@@ -54,6 +54,8 @@ export interface FindOptions {
   onResult?: (result: JumpResult) => void
   maxRequests?: number
   languages?: LanguageScope
+  /** stops sending further searches; the page already in flight finishes */
+  signal?: AbortSignal
 }
 
 /**
@@ -65,7 +67,7 @@ export async function findEditions(
   source: SourceGallery,
   origin: string,
   priority: readonly string[],
-  { force = false, onProgress, onResult, maxRequests = DEFAULT_MAX_REQUESTS, languages = 'account' }: FindOptions = {},
+  { force = false, onProgress, onResult, maxRequests = DEFAULT_MAX_REQUESTS, languages = 'account', signal }: FindOptions = {},
 ): Promise<JumpResult> {
   const plan = planSearch(source)
   // stale entries from an earlier build or an expired day; nothing waits on it
@@ -84,6 +86,7 @@ export async function findEditions(
   const search = async (queries: readonly string[]): Promise<SearchResponse[]> => {
     const pages: SearchResponse[] = []
     for (const query of queries) {
+      if (signal?.aborted) break
       if (requests.some(requestStopsRun)) break
       if (requests.length >= maxRequests) break
       const page = await fetchSearch(origin, query, plan.visibility, languages, force)

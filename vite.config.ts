@@ -35,9 +35,14 @@ export default defineConfig({
       entry: 'src/main.ts',
       userscript: {
         namespace: 'https://github.com/Tsuyumi25/EhHyperlink',
-        // Gallery pages, plus the search pages that answer the gallery page's
-        // preview (src/services/preview.ts) and do nothing otherwise.
-        match: ['https://exhentai.org/g/*', 'https://e-hentai.org/g/*', 'https://www.dlsite.com/*/fsr/*', 'https://html.duckduckgo.com/html/*'],
+        // Gallery pages; the Multi-Page Viewer, where a gallery box another script lays
+        // over the page gets the bar too (src/main.ts); plus the search pages that answer
+        // the gallery page's preview (src/services/preview.ts) and do nothing otherwise.
+        match: [
+          'https://exhentai.org/g/*', 'https://e-hentai.org/g/*',
+          'https://exhentai.org/mpv/*', 'https://e-hentai.org/mpv/*',
+          'https://www.dlsite.com/*/fsr/*', 'https://html.duckduckgo.com/html/*',
+        ],
         // Regexes where a match pattern cannot say it: Google may redirect
         // `www.google.com/search` to a country domain (seen: `www.google.com.hk`,
         // keeping `q` and adding `sei`), and pixiv serves English readers under `/en/`.

@@ -24,6 +24,6 @@ describe('category badge', () => {
       `<h1 id="gn">Work Beta</h1><div id="gdc"><div class="cs ct3" onclick="document.location='https://e-hentai.org/manga'">マンガ</div></div>`,
       'text/html',
     )
-    expect(readSourceGallery(page, '/g/1000/0a0a0a0a0a/')?.category).toBe('Manga')
+    expect(readSourceGallery(page, 1000)?.category).toBe('Manga')
   })
 })

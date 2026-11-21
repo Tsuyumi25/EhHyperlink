@@ -107,6 +107,24 @@ it('publishes the complete container stage before the edition searches finish', 
   expect(networkFetch).not.toHaveBeenCalled()
 })
 
+// 呼叫端取消之後不再送新的搜尋：MPV 裡面板收起時，bar 跟著卸載，剩下的搜尋不該繼續打。
+it('sends no further searches once the caller aborts', async () => {
+  const source = gallery({
+    title: '[Artist Alpha] Work Beta (COMIC Alphabeta Monthly Vol. 18)',
+    titleJpn: '[作者甲] 作品乙 (コミック甲 Vol.18)',
+    category: 'Manga',
+    tags: ['other:anthology'],
+  })
+  const stop = new AbortController()
+  vi.mocked(fetchSearch).mockImplementation(async (_origin, query) => {
+    stop.abort()
+    return page(query, [publication])
+  })
+  const result = await findEditions(source, origin, ['english'], { signal: stop.signal })
+  expect(fetchSearch).toHaveBeenCalledTimes(1)
+  expect(result.requests).toHaveLength(1)
+})
+
 // 後續搜尋失敗時保留原刊，並把失敗紀錄與部分完成狀態交給呼叫端。
 it('leaves the published containers available when a later search fails', async () => {
   const source = gallery({
